@@ -13,48 +13,48 @@ let flushing = false;
 export function initSocket(server) {
   const io = new Server(server, {
     cors: { origin: "*" },
-    transports: ["polling","websocket"],
+    transports: ["polling", "websocket"],
     allowUpgrades: false,
   });
 
   io.on("connection", (socket) => {
-  socket.on("send-message", ({ userId, username, content }) => {
-  const snowflake = generateSnowflake();
-  const createdAt = new Date();
+    socket.on("send-message", ({ userId, username, content }) => {
+      const snowflake = generateSnowflake();
+      const createdAt = new Date();
 
-  const message = {
-    userId,  
-    snowflake,
-    username,
-    content,
-    createdAt,
-  };
-
-  
-  // 1️⃣ realtime emit (UI ordering uses snowflake)
-  io.emit("new-message", {
-  userId,
-  snowflake,
-  username,
-  content,
-  createdAt: createdAt.toISOString(),
-});
+      const message = {
+        userId,
+        snowflake,
+        username,
+        content,
+        createdAt,
+      };
 
 
-  // 2️⃣ buffer for DB
-if (messageBuffer.length >= MAX_BUFFER) {
-  socket.emit("server-busy");
-  return;
-}
+      // 1️⃣ realtime emit (UI ordering uses snowflake)
+      io.emit("new-message", {
+        userId,
+        snowflake,
+        username,
+        content,
+        createdAt: createdAt.toISOString(),
+      });
 
-messageBuffer.push(message);
+
+      // 2️⃣ buffer for DB
+      if (messageBuffer.length >= MAX_BUFFER) {
+        socket.emit("server-busy");
+        return;
+      }
+
+      messageBuffer.push(message);
 
 
-  // 3️⃣ size-based flush
-  if (messageBuffer.length >= BATCH_SIZE) {
-    flushMessages();
-  }
-});
+      // 3️⃣ size-based flush
+      if (messageBuffer.length >= BATCH_SIZE) {
+        flushMessages();
+      }
+    });
 
 
     // Typing indicator
@@ -72,16 +72,18 @@ messageBuffer.push(message);
 
 async function flushMessages() {
   if (flushing) return;
-  console.log("Flushing batch:", batch.length);
 
   if (messageBuffer.length === 0) return;
 
   flushing = true;
 
   const batch = messageBuffer.splice(
-  0,
-  Math.min(BATCH_SIZE, messageBuffer.length)
-);
+    0,
+    Math.min(BATCH_SIZE, messageBuffer.length)
+  );
+
+  console.log("Flushing batch:", batch.length);
+
 
   // 🔑 enforce creation order
   batch.sort((a, b) => a.snowflake - b.snowflake);
@@ -103,9 +105,9 @@ async function flushMessages() {
     messageBuffer.unshift(...batch);
   } finally {
     flushing = false;
-     if (messageBuffer.length >= BATCH_SIZE) {
-    flushMessages();
-  }
+    if (messageBuffer.length >= BATCH_SIZE) {
+      flushMessages();
+    }
   }
 }
 
