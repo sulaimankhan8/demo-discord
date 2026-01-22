@@ -18,6 +18,8 @@ config:
     socketio:
       transports:
         - websocket
+      ws: true
+      path: /socket.io
 
   processor: "./user-generator.js"
 

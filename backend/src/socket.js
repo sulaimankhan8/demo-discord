@@ -13,7 +13,7 @@ let flushing = false;
 export function initSocket(server) {
   const io = new Server(server, {
     cors: { origin: "*" },
-    transports: ["websocket"],
+    transports: ["polling","websocket"],
     allowUpgrades: false,
   });
 
@@ -76,7 +76,10 @@ async function flushMessages() {
 
   flushing = true;
 
-  const batch = messageBuffer.splice(0, BATCH_SIZE);
+  const batch = messageBuffer.splice(
+  0,
+  Math.min(BATCH_SIZE, messageBuffer.length)
+);
 
   // 🔑 enforce creation order
   batch.sort((a, b) => a.snowflake - b.snowflake);
