@@ -93,7 +93,7 @@ async function flushMessages() {
         content: m.content,
         createdAt: m.createdAt,
       }))
-    );
+    ).execute();
   } catch (err) {
     console.error("Batch insert failed", err);
 
