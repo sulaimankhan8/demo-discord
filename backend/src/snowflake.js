@@ -3,7 +3,7 @@
 let lastTimestamp = 0;
 let sequence = 0;
 
-const EPOCH = 1700000000000; // custom epoch
+const EPOCH = 1577836800000; // custom epoch
 
 export function generateSnowflake() {
   let now = Date.now();

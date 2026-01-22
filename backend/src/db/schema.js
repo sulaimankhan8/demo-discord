@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, bigint } from "drizzle-orm/pg-core";
+import { pgTable, text,integer, timestamp, uuid, bigint } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -12,5 +12,16 @@ export const messages = pgTable("messages", {
   snowflake: bigint("snowflake", { mode: "number" }).notNull(),
   username: text("username").notNull(),
   content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const messageReactions = pgTable("message_reactions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  messageId: uuid("message_id").notNull(),
+  userId: uuid("user_id").notNull(),
+
+  emojiCode: integer("emoji_code").notNull(),
+
   createdAt: timestamp("created_at").defaultNow(),
 });
