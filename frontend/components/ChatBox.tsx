@@ -36,9 +36,14 @@ export default function ChatBox() {
   // realtime messages
   useEffect(() => {
     const handler = (msg: Message) => {
-      setMessages((prev) =>
-  [...prev, msg].sort((a, b) => a.snowflake - b.snowflake)
-);
+     setMessages((prev) => {
+  if (prev.length === 0) return [msg];
+  if (msg.snowflake > prev[prev.length - 1].snowflake) {
+    return [...prev, msg];
+  }
+  return [...prev, msg].sort((a, b) => a.snowflake - b.snowflake);
+});
+
 
     };
 

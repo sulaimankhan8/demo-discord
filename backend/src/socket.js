@@ -5,6 +5,7 @@ import { messages } from "./db/schema.js";
 
 const BATCH_SIZE = 100;
 const FLUSH_INTERVAL = 100;
+const MAX_BUFFER = 5000;
 
 const messageBuffer = [];
 let flushing = false;
@@ -17,19 +18,22 @@ export function initSocket(server) {
   });
 
   io.on("connection", (socket) => {
-  socket.on("send-message", ({ username, content }) => {
+  socket.on("send-message", ({ userId, username, content }) => {
   const snowflake = generateSnowflake();
   const createdAt = new Date();
 
   const message = {
+    userId,  
     snowflake,
     username,
     content,
     createdAt,
   };
 
+  
   // 1️⃣ realtime emit (UI ordering uses snowflake)
   io.emit("new-message", {
+  userId,
   snowflake,
   username,
   content,
@@ -74,6 +78,7 @@ async function flushMessages() {
   try {
     await db.insert(messages).values(
       batch.map((m) => ({
+        userId: m.userId,
         snowflake: m.snowflake,
         username: m.username,
         content: m.content,
@@ -87,6 +92,9 @@ async function flushMessages() {
     messageBuffer.unshift(...batch);
   } finally {
     flushing = false;
+     if (messageBuffer.length >= BATCH_SIZE) {
+    flushMessages();
+  }
   }
 }
 
