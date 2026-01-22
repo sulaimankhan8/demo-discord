@@ -72,6 +72,8 @@ messageBuffer.push(message);
 
 async function flushMessages() {
   if (flushing) return;
+  console.log("Flushing batch:", batch.length);
+
   if (messageBuffer.length === 0) return;
 
   flushing = true;
