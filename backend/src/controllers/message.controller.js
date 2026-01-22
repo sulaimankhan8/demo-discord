@@ -1,6 +1,5 @@
 import { db } from "../db/index.js";
-import { messages } from "../db/schema.js";
-import { desc, lt, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { messageBuffer } from "../socket.js";
 
 export async function getMessages(req, res) {
@@ -8,7 +7,6 @@ export async function getMessages(req, res) {
     const limit = Number(req.query.limit ?? 50);
     const before = req.query.before ? Number(req.query.before) : null;
 
-    /* ---------- DB messages ---------- */
     const dbMessages = await db.execute(sql`
       SELECT
         m.id,
@@ -18,39 +16,31 @@ export async function getMessages(req, res) {
         m.snowflake,
         m.created_at AS "createdAt",
         COALESCE(
-          jsonb_object_agg(r.emoji_code, r.cnt)
-          FILTER (WHERE r.emoji_code IS NOT NULL),
+          jsonb_object_agg(c.emoji_code, c.count)
+          FILTER (WHERE c.emoji_code IS NOT NULL),
           '{}'::jsonb
         ) AS reactions
       FROM messages m
-      LEFT JOIN (
-        SELECT
-          message_id,
-          emoji_code,
-          COUNT(*)::int AS cnt
-        FROM message_reactions
-        GROUP BY message_id, emoji_code
-      ) r ON r.message_id = m.id
+      LEFT JOIN message_reaction_counts c
+        ON c.message_id = m.id
       ${before ? sql`WHERE m.snowflake < ${before}` : sql``}
       GROUP BY m.id
       ORDER BY m.snowflake DESC
       LIMIT ${limit}
     `);
 
-    /* ---------- buffered messages ---------- */
     const buffered = messageBuffer
       .filter((m) => !before || m.snowflake < before)
       .map((m) => ({
-        id: null,               // not flushed yet
+        id: null,
         userId: m.userId,
         username: m.username,
         content: m.content,
         snowflake: m.snowflake,
         createdAt: m.createdAt,
-        reactions: {},          // no reactions yet
+        reactions: {},
       }));
 
-    /* ---------- merge ---------- */
     const merged = [...dbMessages.rows, ...buffered]
       .reduce((map, m) => {
         map.set(m.snowflake, m);

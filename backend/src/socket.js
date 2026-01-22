@@ -1,11 +1,14 @@
 import { Server } from "socket.io";
 import { db } from "./db/index.js";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { generateSnowflake } from "./snowflake.js";
-import { messages, messageReactions } from "./db/schema.js";
+import {
+  messages,
+  messageReactions,
+  messageReactionCounts,
+} from "./db/schema.js";
 
-let io;
 /* ---------------- CONFIG ---------------- */
 
 let BATCH_SIZE = 100;
@@ -16,53 +19,64 @@ const MAX_BUFFER = 5000;
 
 export const messageBuffer = [];
 export const WAL = []; // write-ahead log
-const presence = new Map(); // userId → status
+const presence = new Map(); // userId → { userId, username, status }
+
 let flushing = false;
 let lastFlush = Date.now();
+let io;
 
-/* ---------------- SOCKET ---------------- */
+/* ---------------- SOCKET INIT ---------------- */
 
 export function initSocket(server) {
-   io = new Server(server, {
+  io = new Server(server, {
     cors: { origin: "*" },
     transports: ["polling", "websocket"],
   });
 
   io.on("connection", (socket) => {
-    console.log("[SOCKET] connected:", socket.id);
+    console.log("[SOCKET CONNECTED]", socket.id);
 
-    /* ---------- PRESENCE ---------- */
+    /* ---------- INITIAL PRESENCE PUSH ---------- */
     io.emit("presence:update", {
-  users: Array.from(presence.values()),
-});
+      users: Array.from(presence.values()),
+    });
 
-     socket.on("presence:online", ({ userId, username }) => {
+    /* ---------- PRESENCE ONLINE ---------- */
+    socket.on("presence:online", ({ userId, username }) => {
       socket.userId = userId;
       socket.username = username;
 
-      presence.set(userId, { userId, username, status: "online" });
+      presence.set(userId, {
+        userId,
+        username,
+        status: "online",
+      });
 
       io.emit("presence:update", {
         users: Array.from(presence.values()),
       });
     });
 
+    /* ---------- DISCONNECT ---------- */
     socket.on("disconnect", () => {
       if (socket.userId) {
-        presence.set(socket.userId, {
-          ...presence.get(socket.userId),
-          status: "offline",
-        });
+        const prev = presence.get(socket.userId);
+        if (prev) {
+          presence.set(socket.userId, {
+            ...prev,
+            status: "offline",
+          });
 
-        io.emit("presence:update", {
-          users: Array.from(presence.values()),
-        });
+          io.emit("presence:update", {
+            users: Array.from(presence.values()),
+          });
+        }
       }
 
-      console.log("[SOCKET] disconnected:", socket.id);
+      console.log("[SOCKET DISCONNECTED]", socket.id);
     });
 
-    /* ---------- MESSAGE ---------- */
+    /* ---------- SEND MESSAGE ---------- */
     socket.on("send-message", ({ userId, username, content }) => {
       const snowflake = generateSnowflake();
       const createdAt = new Date();
@@ -75,13 +89,12 @@ export function initSocket(server) {
         createdAt,
       };
 
-      /* realtime emit */
+      /* realtime */
       io.emit("new-message", {
         ...message,
         createdAt: createdAt.toISOString(),
       });
 
-      /* WAL + buffer */
       if (messageBuffer.length >= MAX_BUFFER) {
         socket.emit("server-busy");
         return;
@@ -93,20 +106,19 @@ export function initSocket(server) {
       if (messageBuffer.length >= BATCH_SIZE) flushMessages();
     });
 
-    /* ---------- TYPING (OPTIMIZED) ---------- */
+    /* ---------- TYPING ---------- */
     socket.on("typing:start", () => {
-  socket.broadcast.emit("typing:start", {
-    userId: socket.userId,
-    username: socket.username,
-  });
-});
-
+      socket.broadcast.emit("typing:start", {
+        userId: socket.userId,
+        username: socket.username,
+      });
+    });
 
     socket.on("typing:stop", () => {
       socket.broadcast.emit("typing:stop", socket.userId);
     });
 
-    /* ---------- REACTIONS ---------- */
+    /* ---------- REACTIONS (FINAL) ---------- */
     socket.on("reaction:add", async ({ messageId, userId, emojiCode }) => {
   if (!messageId) return;
 
@@ -122,16 +134,25 @@ export function initSocket(server) {
     );
 
   if (existing.length > 0) {
-    // 🔥 REMOVE (toggle off)
-    await db
-      .delete(messageReactions)
-      .where(
-        and(
-          eq(messageReactions.messageId, messageId),
-          eq(messageReactions.userId, userId),
-          eq(messageReactions.emojiCode, emojiCode)
-        )
-      );
+    // REMOVE reaction
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(messageReactions)
+        .where(
+          and(
+            eq(messageReactions.messageId, messageId),
+            eq(messageReactions.userId, userId),
+            eq(messageReactions.emojiCode, emojiCode)
+          )
+        );
+
+      await tx.execute(sql`
+        UPDATE message_reaction_counts
+        SET count = count - 1
+        WHERE message_id = ${messageId}
+          AND emoji_code = ${emojiCode}
+      `);
+    });
 
     io.emit("reaction:update", {
       messageId,
@@ -142,11 +163,20 @@ export function initSocket(server) {
     return;
   }
 
-  // ➕ ADD (toggle on)
-  await db.insert(messageReactions).values({
-    messageId,
-    userId,
-    emojiCode,
+  // ADD reaction
+  await db.transaction(async (tx) => {
+    await tx.insert(messageReactions).values({
+      messageId,
+      userId,
+      emojiCode,
+    });
+
+    await tx.execute(sql`
+      INSERT INTO message_reaction_counts (message_id, emoji_code, count)
+      VALUES (${messageId}, ${emojiCode}, 1)
+      ON CONFLICT (message_id, emoji_code)
+      DO UPDATE SET count = message_reaction_counts.count + 1
+    `);
   });
 
   io.emit("reaction:update", {
@@ -155,6 +185,7 @@ export function initSocket(server) {
     delta: +1,
   });
 });
+
   });
 }
 
@@ -162,14 +193,17 @@ export function initSocket(server) {
 
 function adjustBatchSize() {
   const delta = Date.now() - lastFlush;
+
   if (delta < 50) BATCH_SIZE = Math.min(BATCH_SIZE * 2, 1000);
-  else if (delta > 200) BATCH_SIZE = Math.max(BATCH_SIZE / 2, 50);
+  else if (delta > 200) BATCH_SIZE = Math.max(Math.floor(BATCH_SIZE / 2), 50);
+
   lastFlush = Date.now();
 }
 
 async function flushMessages() {
   if (flushing || messageBuffer.length === 0) return;
   flushing = true;
+
   adjustBatchSize();
 
   const batch = messageBuffer.splice(0, BATCH_SIZE);
@@ -177,31 +211,28 @@ async function flushMessages() {
 
   try {
     const inserted = await db
-  .insert(messages)
-  .values(
-    batch.map((m) => ({
-      userId: m.userId,
-      snowflake: m.snowflake,
-      username: m.username,
-      content: m.content,
-      createdAt: m.createdAt,
-    }))
-  )
-  .returning({
-    id: messages.id,
-    snowflake: messages.snowflake,
-  })
-  .execute();
+      .insert(messages)
+      .values(
+        batch.map((m) => ({
+          userId: m.userId,
+          snowflake: m.snowflake,
+          username: m.username,
+          content: m.content,
+          createdAt: m.createdAt,
+        }))
+      )
+      .returning({
+        id: messages.id,
+        snowflake: messages.snowflake,
+      });
 
-  for (const row of inserted) {
-  io.emit("message:ack", {
-    id: row.id,
-    snowflake: row.snowflake,
-  });
-}
+    for (const row of inserted) {
+      io.emit("message:ack", row);
+    }
+
     WAL.splice(0, batch.length);
   } catch (err) {
-    console.error("[DB FAIL]", err.message);
+    console.error("[DB INSERT FAIL]", err.message);
     messageBuffer.unshift(...batch);
   } finally {
     flushing = false;
