@@ -42,7 +42,13 @@ export function initSocket(server) {
 
 
   // 2️⃣ buffer for DB
-  messageBuffer.push(message);
+if (messageBuffer.length >= MAX_BUFFER) {
+  socket.emit("server-busy");
+  return;
+}
+
+messageBuffer.push(message);
+
 
   // 3️⃣ size-based flush
   if (messageBuffer.length >= BATCH_SIZE) {
