@@ -1,35 +1,71 @@
 import { Server } from "socket.io";
 import { db } from "./db/index.js";
-import { generateSnowflake } from "./snowflake.js";
-import { messages } from "./db/schema.js";
+import { and, eq } from "drizzle-orm";
 
-const BATCH_SIZE = 100;
+import { generateSnowflake } from "./snowflake.js";
+import { messages, messageReactions } from "./db/schema.js";
+
+let io;
+/* ---------------- CONFIG ---------------- */
+
+let BATCH_SIZE = 100;
 const FLUSH_INTERVAL = 100;
 const MAX_BUFFER = 5000;
 
+/* ---------------- STATE ---------------- */
+
 export const messageBuffer = [];
+export const WAL = []; // write-ahead log
+const presence = new Map(); // userId → status
 let flushing = false;
+let lastFlush = Date.now();
+
+/* ---------------- SOCKET ---------------- */
 
 export function initSocket(server) {
-  const io = new Server(server, {
+   io = new Server(server, {
     cors: { origin: "*" },
     transports: ["polling", "websocket"],
-    allowUpgrades: true,
   });
 
   io.on("connection", (socket) => {
-    console.log("[SOCKET] client connected:", socket.id);
+    console.log("[SOCKET] connected:", socket.id);
 
+    /* ---------- PRESENCE ---------- */
+    io.emit("presence:update", {
+  users: Array.from(presence.values()),
+});
+
+     socket.on("presence:online", ({ userId, username }) => {
+      socket.userId = userId;
+      socket.username = username;
+
+      presence.set(userId, { userId, username, status: "online" });
+
+      io.emit("presence:update", {
+        users: Array.from(presence.values()),
+      });
+    });
+
+    socket.on("disconnect", () => {
+      if (socket.userId) {
+        presence.set(socket.userId, {
+          ...presence.get(socket.userId),
+          status: "offline",
+        });
+
+        io.emit("presence:update", {
+          users: Array.from(presence.values()),
+        });
+      }
+
+      console.log("[SOCKET] disconnected:", socket.id);
+    });
+
+    /* ---------- MESSAGE ---------- */
     socket.on("send-message", ({ userId, username, content }) => {
       const snowflake = generateSnowflake();
       const createdAt = new Date();
-
-      console.log("[MSG IN]", {
-        socketId: socket.id,
-        userId,
-        username,
-        snowflake,
-      });
 
       const message = {
         userId,
@@ -41,128 +77,139 @@ export function initSocket(server) {
 
       /* realtime emit */
       io.emit("new-message", {
-        userId,
-        snowflake,
-        username,
-        content,
+        ...message,
         createdAt: createdAt.toISOString(),
       });
 
-      console.log("[EMIT] new-message", snowflake);
-
-      /* buffer */
+      /* WAL + buffer */
       if (messageBuffer.length >= MAX_BUFFER) {
-        console.warn("[BUFFER FULL] dropping message", snowflake);
         socket.emit("server-busy");
         return;
       }
 
+      WAL.push(message);
       messageBuffer.push(message);
-      console.log(
-        "[BUFFER PUSH]",
-        "size:",
-        messageBuffer.length,
-        "snowflake:",
-        snowflake
+
+      if (messageBuffer.length >= BATCH_SIZE) flushMessages();
+    });
+
+    /* ---------- TYPING (OPTIMIZED) ---------- */
+    socket.on("typing:start", () => {
+  socket.broadcast.emit("typing:start", {
+    userId: socket.userId,
+    username: socket.username,
+  });
+});
+
+
+    socket.on("typing:stop", () => {
+      socket.broadcast.emit("typing:stop", socket.userId);
+    });
+
+    /* ---------- REACTIONS ---------- */
+    socket.on("reaction:add", async ({ messageId, userId, emojiCode }) => {
+  if (!messageId) return;
+
+  const existing = await db
+    .select()
+    .from(messageReactions)
+    .where(
+      and(
+        eq(messageReactions.messageId, messageId),
+        eq(messageReactions.userId, userId),
+        eq(messageReactions.emojiCode, emojiCode)
+      )
+    );
+
+  if (existing.length > 0) {
+    // 🔥 REMOVE (toggle off)
+    await db
+      .delete(messageReactions)
+      .where(
+        and(
+          eq(messageReactions.messageId, messageId),
+          eq(messageReactions.userId, userId),
+          eq(messageReactions.emojiCode, emojiCode)
+        )
       );
 
-      /* trigger flush */
-      if (messageBuffer.length >= BATCH_SIZE) {
-        console.log("[FLUSH TRIGGER] size-based");
-        flushMessages();
-      }
+    io.emit("reaction:update", {
+      messageId,
+      emojiCode,
+      delta: -1,
     });
 
-    socket.on("typing", ({ username }) => {
-      console.log("[TYPING]", username);
-      socket.broadcast.emit("typing", { username });
-    });
+    return;
+  }
 
-    socket.on("stop-typing", ({ username }) => {
-      console.log("[STOP TYPING]", username);
-      socket.broadcast.emit("stop-typing", { username });
-    });
+  // ➕ ADD (toggle on)
+  await db.insert(messageReactions).values({
+    messageId,
+    userId,
+    emojiCode,
+  });
 
-    socket.on("disconnect", () => {
-      console.log("[SOCKET] disconnected:", socket.id);
-    });
+  io.emit("reaction:update", {
+    messageId,
+    emojiCode,
+    delta: +1,
+  });
+});
   });
 }
 
 /* ---------------- FLUSH ---------------- */
 
+function adjustBatchSize() {
+  const delta = Date.now() - lastFlush;
+  if (delta < 50) BATCH_SIZE = Math.min(BATCH_SIZE * 2, 1000);
+  else if (delta > 200) BATCH_SIZE = Math.max(BATCH_SIZE / 2, 50);
+  lastFlush = Date.now();
+}
+
 async function flushMessages() {
-  if (flushing) {
-    console.log("[FLUSH SKIP] already flushing");
-    return;
-  }
-
-  if (messageBuffer.length === 0) {
-    console.log("[FLUSH SKIP] buffer empty");
-    return;
-  }
-
+  if (flushing || messageBuffer.length === 0) return;
   flushing = true;
+  adjustBatchSize();
 
-  const batch = messageBuffer.splice(
-    0,
-    Math.min(BATCH_SIZE, messageBuffer.length)
-  );
-
-  console.log(
-    "[FLUSH START]",
-    "batch size:",
-    batch.length,
-    "buffer left:",
-    messageBuffer.length
-  );
-
+  const batch = messageBuffer.splice(0, BATCH_SIZE);
   batch.sort((a, b) => a.snowflake - b.snowflake);
 
-  console.log(
-    "[FLUSH ORDER]",
-    "first:",
-    batch[0]?.snowflake,
-    "last:",
-    batch[batch.length - 1]?.snowflake
-  );
-
   try {
-    await db
-      .insert(messages)
-      .values(
-        batch.map((m) => ({
-          userId: m.userId,
-          snowflake: m.snowflake,
-          username: m.username,
-          content: m.content,
-          createdAt: m.createdAt,
-        }))
-      )
-      .execute();
-      console.log(messages);
-      
+    const inserted = await db
+  .insert(messages)
+  .values(
+    batch.map((m) => ({
+      userId: m.userId,
+      snowflake: m.snowflake,
+      username: m.username,
+      content: m.content,
+      createdAt: m.createdAt,
+    }))
+  )
+  .returning({
+    id: messages.id,
+    snowflake: messages.snowflake,
+  })
+  .execute();
 
-    console.log("[DB INSERT OK]", batch.length);
+  for (const row of inserted) {
+  io.emit("message:ack", {
+    id: row.id,
+    snowflake: row.snowflake,
+  });
+}
+    WAL.splice(0, batch.length);
   } catch (err) {
-    console.error("[DB INSERT FAIL]", err.message);
+    console.error("[DB FAIL]", err.message);
     messageBuffer.unshift(...batch);
-    console.warn("[BUFFER RESTORED]", messageBuffer.length);
   } finally {
     flushing = false;
-
-    if (messageBuffer.length >= BATCH_SIZE) {
-      console.log("[FLUSH CONTINUE]");
-      flushMessages();
-    }
   }
 }
 
 /* ---------------- INTERVAL ---------------- */
 
 setInterval(() => {
-  if (messageBuffer.length > 0) {
-    console.log("[INTERVAL FLUSH]", "buffer:", messageBuffer.length);
-    flushMessages();
-  }
+  if (messageBuffer.length > 0) flushMessages();
 }, FLUSH_INTERVAL);
