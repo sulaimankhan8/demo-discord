@@ -7,10 +7,10 @@ export async function getMessages(req, res) {
     const data = await db
       .select()
       .from(messages)
-      .orderBy(desc(messages.createdAt))
+      .orderBy(messages.snowflake)
       .limit(50);
 
-    res.json(data.reverse());
+    res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

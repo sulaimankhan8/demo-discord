@@ -1,6 +1,13 @@
 import { Server } from "socket.io";
 import { db } from "./db/index.js";
+import { generateSnowflake } from "./snowflake.js";
 import { messages } from "./db/schema.js";
+
+const BATCH_SIZE = 100;
+const FLUSH_INTERVAL = 100;
+
+const messageBuffer = [];
+let flushing = false;
 
 export function initSocket(server) {
   const io = new Server(server, {
@@ -8,23 +15,32 @@ export function initSocket(server) {
   });
 
   io.on("connection", (socket) => {
-    socket.on("send-message", ({ userId, username, content }) => {
-      const message = {
-        userId,
-        username,
-        content,
-        //createdAt: new Date().toISOString(),
-      };
+  socket.on("send-message", ({ username, content }) => {
+  const snowflake = generateSnowflake();
+  const createdAt = new Date();
 
-      // 1️⃣ Instant broadcast
-      io.emit("new-message", {
-        ...message,
-        createdAt: new Date().toISOString(), // only for UI
-      });
+  const message = {
+    snowflake,
+    username,
+    content,
+    createdAt,
+  };
 
-      // 2️⃣ Persist async (fire-and-forget)
-      db.insert(messages).values(message).catch(console.error);
-    });
+  // 1️⃣ realtime emit (UI ordering uses snowflake)
+  io.emit("new-message", {
+    ...message,
+    createdAt: createdAt.toISOString(),
+  });
+
+  // 2️⃣ buffer for DB
+  messageBuffer.push(message);
+
+  // 3️⃣ size-based flush
+  if (messageBuffer.length >= BATCH_SIZE) {
+    flushMessages();
+  }
+});
+
 
     // Typing indicator
     socket.on("typing", ({ username }) => {
@@ -39,3 +55,38 @@ export function initSocket(server) {
 
 
 
+async function flushMessages() {
+  if (flushing) return;
+  if (messageBuffer.length === 0) return;
+
+  flushing = true;
+
+  const batch = messageBuffer.splice(0, BATCH_SIZE);
+
+  // 🔑 enforce creation order
+  batch.sort((a, b) => a.snowflake - b.snowflake);
+
+  try {
+    await db.insert(messages).values(
+      batch.map((m) => ({
+        snowflake: m.snowflake,
+        username: m.username,
+        content: m.content,
+        createdAt: m.createdAt,
+      }))
+    );
+  } catch (err) {
+    console.error("Batch insert failed", err);
+
+    // resistance: retry
+    messageBuffer.unshift(...batch);
+  } finally {
+    flushing = false;
+  }
+}
+
+setInterval(() => {
+  if (messageBuffer.length > 0) {
+    flushMessages();
+  }
+}, FLUSH_INTERVAL);

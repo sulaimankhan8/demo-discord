@@ -1,0 +1,41 @@
+config:
+  target: "https://demo-discord.onrender.com"
+
+  phases:
+    - name: warm-up
+      duration: 30
+      arrivalRate: 10
+
+    - name: steady-load
+      duration: 60
+      arrivalRate: 20
+
+    - name: stress
+      duration: 60
+      arrivalRate: 40
+
+  engines:
+    socketio: {}
+
+  processor: "./user-generator.js"
+
+scenarios:
+  - name: real-user-chat
+    engine: socketio
+    flow:
+      # pick existing DB user
+      - function: "pickUser"
+
+      # simulate chatting
+      - loop:
+          - emit:
+              channel: send-message
+              data:
+                userId: "{{ userId }}"
+                username: "{{ username }}"
+                content: "message {{ $loopCount }} from {{ username }}"
+          - think: 0.5
+        count: 5
+
+      # keep socket open
+      - think: 5
