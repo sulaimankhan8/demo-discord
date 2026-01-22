@@ -36,10 +36,7 @@ export default function ChatBox() {
     };
 
     socket.on("new-message", handler);
-    return () => {
-    socket.off("new-message", handler);
-    return; 
-  };
+    return () =>{ socket.off("new-message", handler)};
   }, [socket]);
 
   const send = () => {
