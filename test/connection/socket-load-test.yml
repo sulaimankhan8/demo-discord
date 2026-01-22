@@ -15,7 +15,9 @@ config:
       arrivalRate: 40
 
   engines:
-    socketio: {}
+    socketio:
+      transports:
+        - websocket
 
   processor: "./user-generator.js"
 

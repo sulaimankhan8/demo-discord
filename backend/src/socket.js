@@ -12,6 +12,8 @@ let flushing = false;
 export function initSocket(server) {
   const io = new Server(server, {
     cors: { origin: "*" },
+    transports: ["websocket"],
+    allowUpgrades: false,
   });
 
   io.on("connection", (socket) => {
@@ -28,9 +30,12 @@ export function initSocket(server) {
 
   // 1️⃣ realtime emit (UI ordering uses snowflake)
   io.emit("new-message", {
-    ...message,
-    createdAt: createdAt.toISOString(),
-  });
+  snowflake,
+  username,
+  content,
+  createdAt: createdAt.toISOString(),
+});
+
 
   // 2️⃣ buffer for DB
   messageBuffer.push(message);

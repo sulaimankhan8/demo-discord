@@ -3,11 +3,13 @@ import { useEffect, useState, useRef } from "react";
 import { getSocket } from "@/lib/socket";
 
 type Message = {
-  userId: string;
+  snowflake: number;
+  userId?: string;
   username: string;
   content: string;
   createdAt: string;
 };
+
 
 export default function ChatBox() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -34,7 +36,10 @@ export default function ChatBox() {
   // realtime messages
   useEffect(() => {
     const handler = (msg: Message) => {
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) =>
+  [...prev, msg].sort((a, b) => a.snowflake - b.snowflake)
+);
+
     };
 
     socket.on("new-message", handler);
