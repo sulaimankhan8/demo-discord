@@ -2,7 +2,7 @@ import { Server } from "socket.io";
 import { db } from "./db/index.js";
 import { and, eq, sql } from "drizzle-orm";
 
-import { generateSnowflake } from "./snowflake.js";
+import Snowflake from "./snowflake.js";
 import {
   messages,
   messageReactions,
@@ -26,18 +26,25 @@ let lastFlush = Date.now();
 let io;
 
 /* ---------------- SOCKET INIT ---------------- */
+const snowflakeGn = new Snowflake({
+  datacenterId: 1,              // region / DC
+  workerId: Number(process.env.WORKER_ID || 0),
+});
 
 export function initSocket(server) {
   io = new Server(server, {
     cors: { origin: "*" },
-    transports: ["polling", "websocket"],
+    transports: ["websocket"],
   });
 
   io.on("connection", (socket) => {
+    /* realtime */
+    socket.join("global-chat");
+
     console.log("[SOCKET CONNECTED]", socket.id);
 
     /* ---------- INITIAL PRESENCE PUSH ---------- */
-    io.emit("presence:update", {
+    socket.emit("presence:update", {
       users: Array.from(presence.values()),
     });
 
@@ -53,44 +60,51 @@ export function initSocket(server) {
       });
 
       io.emit("presence:update", {
-        users: Array.from(presence.values()),
+        userId,
+        username,
+        status: "online",
       });
     });
 
     /* ---------- DISCONNECT ---------- */
     socket.on("disconnect", () => {
       if (socket.userId) {
-        const prev = presence.get(socket.userId);
-        if (prev) {
-          presence.set(socket.userId, {
-            ...prev,
-            status: "offline",
-          });
+        presence.delete(socket.userId);
 
-          io.emit("presence:update", {
-            users: Array.from(presence.values()),
-          });
-        }
+        /* 🔴 CHANGED: send DELTA */
+        io.emit("presence:update", {
+          userId: socket.userId,
+          status: "offline",
+        });
       }
 
       console.log("[SOCKET DISCONNECTED]", socket.id);
     });
 
     /* ---------- SEND MESSAGE ---------- */
+
+
     socket.on("send-message", ({ userId, username, content }) => {
-      const snowflake = generateSnowflake();
+
+      if (io.engine.clientsCount > 2000) {
+        socket.emit("server-busy");
+        return;
+      }// hard limit 2k clients
+
+      const snowflakeId = snowflakeGn.generate();
       const createdAt = new Date();
 
       const message = {
+        socketId: socket.id,
         userId,
-        snowflake: snowflake.toString(),
+        snowflake: snowflakeId.toString(),
         username,
         content,
         createdAt,
       };
 
-      /* realtime */
-      io.emit("new-message", {
+      // later
+      io.to("global-chat").emit("new-message", {
         ...message,
         createdAt: createdAt.toISOString(),
       });
@@ -108,14 +122,14 @@ export function initSocket(server) {
 
     /* ---------- TYPING ---------- */
     socket.on("typing:start", () => {
-      socket.broadcast.emit("typing:start", {
+      socket.to("global-chat").emit("typing:start", {
         userId: socket.userId,
         username: socket.username,
       });
     });
 
     socket.on("typing:stop", () => {
-      socket.broadcast.emit("typing:stop", socket.userId);
+      socket.to("global-chat").emit("typing:stop", socket.userId);
     });
 
     /* ---------- REACTIONS (FINAL) ---------- */
@@ -208,8 +222,8 @@ async function flushMessages() {
 
   const batch = messageBuffer.splice(0, BATCH_SIZE);
   batch.sort((a, b) =>
-  BigInt(a.snowflake) > BigInt(b.snowflake) ? 1 : -1
-);
+    BigInt(a.snowflake) > BigInt(b.snowflake) ? 1 : -1
+  );
   try {
     const inserted = await db
       .insert(messages)
@@ -227,12 +241,12 @@ async function flushMessages() {
         snowflake: messages.snowflake,
       });
 
-    for (const row of inserted) {
-  io.emit("message:ack", {
-    id: row.id,
-    snowflake: row.snowflake.toString(), // ✅ FIX
-  });
-}
+    for (let i = 0; i < inserted.length; i++) {
+      io.to(batch[i].socketId).emit("message:ack", {
+        id: inserted[i].id,
+        snowflake: inserted[i].snowflake.toString(),
+      });
+    }
 
     WAL.splice(0, batch.length);
   } catch (err) {
