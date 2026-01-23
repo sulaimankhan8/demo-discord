@@ -52,8 +52,8 @@ export default function ChatBox() {
 
   /* ---------- presence ---------- */
    useEffect(() => {
-  socket.on("presence:update", (payload: any) => {
-    // 🟢 NEW: initial full list
+  const handler = (payload: any) => {
+    // initial full list
     if (Array.isArray(payload.users)) {
       setOnlineUsers(
         payload.users.filter((u: UserPresence) => u.status === "online")
@@ -61,11 +61,11 @@ export default function ChatBox() {
       return;
     }
 
-    // 🟢 NEW: delta update
+    // delta update
     const u = payload as UserPresence;
 
     setOnlineUsers((prev) => {
-      const map = new Map(prev.map(p => [p.userId, p]));
+      const map = new Map(prev.map((p) => [p.userId, p]));
 
       if (u.status === "online") {
         map.set(u.userId, u);
@@ -75,9 +75,13 @@ export default function ChatBox() {
 
       return Array.from(map.values());
     });
-  });
+  };
 
-  return () => socket.off("presence:update");
+  socket.on("presence:update", handler);
+
+  return () => {
+    socket.off("presence:update", handler); // ✅ returns void
+  };
 }, []);
 
 
