@@ -241,10 +241,10 @@ async function flushMessages() {
         snowflake: messages.snowflake,
       });
 
-    for (const row of inserted) {
-      io.emit("message:ack", {
-        id: row.id,
-        snowflake: row.snowflake.toString(),
+    for (let i = 0; i < inserted.length; i++) {
+      io.to(batch[i].socketId).emit("message:ack", {
+        id: inserted[i].id,
+        snowflake: inserted[i].snowflake.toString(),
       });
     }
 
