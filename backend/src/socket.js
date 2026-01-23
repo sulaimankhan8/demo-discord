@@ -34,7 +34,7 @@ const snowflakeGn = new Snowflake({
 export function initSocket(server) {
   io = new Server(server, {
     cors: { origin: "*" },
-    transports: ["websocket"],
+    transports: ["websocket", "polling"],
   });
 
   io.on("connection", (socket) => {
