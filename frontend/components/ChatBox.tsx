@@ -10,12 +10,12 @@ type UserPresence = {
 
 type Message = {
   id?: string;
-  snowflake: number;
+  snowflake: string;
   userId?: string;
   username: string;
   content: string;
   createdAt: string;
-  reactions?: Record<number, number>;
+ // reactions?: Record<number, number>;
 };
 
 const EMOJIS = [
@@ -73,7 +73,13 @@ export default function ChatBox() {
     const handler = (msg: Message) => {
       setMessages((prev) => {
         if (prev.find((m) => m.snowflake === msg.snowflake)) return prev;
-        return [...prev, msg].sort((a, b) => a.snowflake - b.snowflake);
+        const next = [...prev, msg];
+next.sort((a, b) =>
+  BigInt(a.snowflake) > BigInt(b.snowflake) ? 1 : -1
+);
+return next;
+
+
       });
     };
 
@@ -87,7 +93,7 @@ export default function ChatBox() {
       );
     });
 
-    socket.on("reaction:update", ({ messageId, emojiCode, delta }) => {
+    /*socket.on("reaction:update", ({ messageId, emojiCode, delta }) => {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === messageId
@@ -104,7 +110,7 @@ export default function ChatBox() {
             : m
         )
       );
-    });
+    });*/
 
     return () => {
       socket.off("new-message", handler);
@@ -250,7 +256,7 @@ export default function ChatBox() {
 
                 <div style={{ fontSize: "14px" }}>{m.content}</div>
 
-                {/* reactions */}
+                {/* reactions 
                 <div style={{ display: "flex", gap: "6px", marginTop: "4px" }}>
                   {EMOJIS.map((e) => (
                     <button
@@ -274,7 +280,7 @@ export default function ChatBox() {
                       {e.label} {m.reactions?.[e.code] ?? 0}
                     </button>
                   ))}
-                </div>
+                </div>*/}
 
                 <div
                   style={{

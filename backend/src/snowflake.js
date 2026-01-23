@@ -1,24 +1,24 @@
 // backend/src/snowflake.js
 
-let lastTimestamp = 0;
-let sequence = 0;
+let lastTimestamp = 0n;
+let sequence = 0n;
 
-const EPOCH = 1577836800000; // custom epoch
+const EPOCH = 1577836800000n; // bigint
 
 export function generateSnowflake() {
-  let now = Date.now();
+  let now = BigInt(Date.now());
 
   if (now === lastTimestamp) {
-    sequence = (sequence + 1) & 4095; // 12-bit sequence
-    if (sequence === 0) {
-      while (Date.now() <= lastTimestamp) {}
-      now = Date.now();
+    sequence = (sequence + 1n) & 4095n;
+    if (sequence === 0n) {
+      while (BigInt(Date.now()) <= lastTimestamp) {}
+      now = BigInt(Date.now());
     }
   } else {
-    sequence = 0;
+    sequence = 0n;
   }
 
   lastTimestamp = now;
 
-  return ((now - EPOCH) << 12) | sequence;
+  return ((now - EPOCH) << 12n) | sequence;
 }

@@ -83,7 +83,7 @@ export function initSocket(server) {
 
       const message = {
         userId,
-        snowflake,
+        snowflake: snowflake.toString(),
         username,
         content,
         createdAt,
@@ -119,7 +119,7 @@ export function initSocket(server) {
     });
 
     /* ---------- REACTIONS (FINAL) ---------- */
-    socket.on("reaction:add", async ({ messageId, userId, emojiCode }) => {
+    /*socket.on("reaction:add", async ({ messageId, userId, emojiCode }) => {
   if (!messageId) return;
 
   const existing = await db
@@ -184,7 +184,7 @@ export function initSocket(server) {
     emojiCode,
     delta: +1,
   });
-});
+});*/
 
   });
 }
@@ -207,8 +207,9 @@ async function flushMessages() {
   adjustBatchSize();
 
   const batch = messageBuffer.splice(0, BATCH_SIZE);
-  batch.sort((a, b) => a.snowflake - b.snowflake);
-
+  batch.sort((a, b) =>
+  BigInt(a.snowflake) > BigInt(b.snowflake) ? 1 : -1
+);
   try {
     const inserted = await db
       .insert(messages)
@@ -227,8 +228,11 @@ async function flushMessages() {
       });
 
     for (const row of inserted) {
-      io.emit("message:ack", row);
-    }
+  io.emit("message:ack", {
+    id: row.id,
+    snowflake: row.snowflake.toString(), // ✅ FIX
+  });
+}
 
     WAL.splice(0, batch.length);
   } catch (err) {
