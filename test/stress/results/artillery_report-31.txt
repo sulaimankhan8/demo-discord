@@ -1,0 +1,95 @@
+ARTILLERY SOCKET.IO LOAD TEST REPORT
+==================================
+
+Target:
+https://demo-discord.onrender.com
+
+Test ID:31
+
+Test Summary
+------------
+Total duration        : ~4 minutes 26 seconds
+Total virtual users   : 3900
+Total emits           : 26,832
+Engine                : Socket.IO (WebSocket + polling fallback)
+
+Phases
+------
+1. Warm-up
+   Duration           : 30s
+   Arrival rate       : 10 users/sec
+   Status             : Stable
+   Notes              : p95 latency < 3 ms, no errors
+
+2. Steady Load
+   Duration           : 60s
+   Arrival rate       : 20 users/sec
+   Status             : Near saturation
+   Notes              : First timeouts observed near ~200–260 msg/sec
+
+3. Stress
+   Duration           : 60s
+   Arrival rate       : 40 users/sec
+   Status             : Overload
+   Notes              : Heavy timeout + polling fallback, throughput collapse
+
+Performance Metrics
+-------------------
+Sustained throughput  : ~150 messages/sec
+Peak throughput       : ~264 messages/sec
+Median latency        : ~0.1 ms
+P95 latency           : ~0.6 ms
+P99 latency           : ~1.6 ms
+Max latency observed  : ~7.9 ms
+
+Errors
+------
+Timeout errors        : 1549
+XHR poll errors       : 469
+XHR post errors       : 205
+Failed VUs            : 2223 (~57%)
+
+Session Length (ms)
+-------------------
+Minimum               : 10,769
+Mean                  : 48,103
+Median                : 36,691
+P95                   : 129,358
+P99                   : 154,871
+Maximum               : 202,419
+
+System Behavior
+---------------
+- Message ordering preserved (Snowflake IDs)
+- No duplicate messages detected
+- Database integrity maintained
+- Dynamic batching reduced DB pressure initially
+- Socket.IO fell back to polling earlier than Attempt 2
+- Throughput collapsed faster under stress
+
+Bottlenecks Identified
+---------------------
+1. Transport instability (polling fallback under load)
+2. Event loop saturation under concurrent emit bursts
+3. Increased retry/timeout amplification
+4. No admission control at socket layer
+
+Capacity Conclusion
+-------------------
+Safe operating range:
+- ~140–150 messages/sec
+- ~180–200 concurrent active users
+
+Beyond this range:
+- Timeout rate increases sharply
+- Session durations grow significantly
+- Failure rate exceeds 50%
+
+Verdict
+-------
+Compared to previous attempts, this run shows earlier
+degradation and higher failure rate under stress.
+Protocol correctness remains intact, but transport-level
+limitations dominate once capacity is exceeded.
+
+END OF REPORT

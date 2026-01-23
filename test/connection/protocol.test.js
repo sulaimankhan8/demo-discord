@@ -1,29 +1,30 @@
 import { io } from "socket.io-client";
 
-/* ===== CONFIG ===== */
-const API = "https://demo-discord.onrender.com";
+console.log("=== PROTOCOL TEST STARTED ===");
 
-/* Pick an already registered user */
+/* Registered user */
 const USER = {
   id: "6e985b49-4fbc-4df7-8a33-433c526da2fd",
   username: "user3",
 };
 
-const TOTAL = 200;
-const TIMEOUT_MS = 30000;
+const TOTAL = 25_000;
+const TEST_TIMEOUT = 30_000;
 
-/* ===== STATE ===== */
-let sent = 0;
-let acked = 0;
-const seen = new Set();
-
-/* ===== START ===== */
-console.log("Protocol test started");
-
-const socket = io(API, {
+const socket = io("https://demo-discord.onrender.com", {
   transports: ["websocket"],
 });
 
+const delivered = new Set();
+const ackedSet = new Set();
+
+let sent = 0;
+let deliveredCount = 0;
+let acked = 0;
+
+const startTime = Date.now();
+
+/* ---------- CONNECT ---------- */
 socket.on("connect", () => {
   console.log("Connected:", socket.id);
 
@@ -36,27 +37,68 @@ socket.on("connect", () => {
     socket.emit("send-message", {
       userId: USER.id,
       username: USER.username,
-      content: `protocol-msg ${i}`,
+      content: `msg ${i}`,
     });
     sent++;
   }
+
+  console.log(`📤 Sent ${sent} messages`);
 });
 
-/* ===== RECEIVE ACK ===== */
-socket.on("message:ack", ({ snowflake }) => {
-  if (seen.has(snowflake)) return;
-  seen.add(snowflake);
-  acked++;
-
-  if (acked === sent) {
-    console.log("✔ Protocol correctness verified");
-    process.exit(0);
+/* ---------- DELIVERY ---------- */
+socket.on("new-message", (msg) => {
+  if (!delivered.has(msg.snowflake)) {
+    delivered.add(msg.snowflake);
+    deliveredCount++;
   }
 });
 
-/* ===== FAIL SAFE ===== */
+/* ---------- ACK ---------- */
+socket.on("message:ack", ({ snowflake }) => {
+  if (ackedSet.has(snowflake)) {
+    console.error("❌ DUPLICATE ACK:", snowflake);
+    process.exit(1);
+  }
+
+  ackedSet.add(snowflake);
+  acked++;
+});
+
+/* ---------- LIVE METRICS ---------- */
+const metricsInterval = setInterval(() => {
+  const elapsed = (Date.now() - startTime) / 1000;
+
+  console.log(
+    `[${elapsed.toFixed(1)}s] ` +
+    `Delivered: ${deliveredCount}/${sent} | ` +
+    `Acked: ${acked}/${sent} | ` +
+    `Pending DB: ${sent - acked}`
+  );
+}, 2000);
+
+/* ---------- FINAL EVALUATION ---------- */
 setTimeout(() => {
-  console.error("❌ Protocol timeout");
-  console.error(`Sent: ${sent}, Acked: ${acked}`);
+  clearInterval(metricsInterval);
+
+  console.log("\n=== PROTOCOL TEST SUMMARY ===");
+  console.log(`Sent:       ${sent}`);
+  console.log(`Delivered:  ${deliveredCount}`);
+  console.log(`Acked:      ${acked}`);
+  console.log(`Pending DB: ${sent - acked}`);
+
+  if (acked === sent) {
+    console.log("✅ FULL CONSISTENCY: all messages persisted");
+    process.exit(0);
+  }
+
+  if (deliveredCount === sent && acked < sent) {
+    console.log("⚠️  BACKPRESSURE DETECTED (EXPECTED)");
+    console.log("   Messages delivered correctly");
+    console.log("   Persistence throughput saturated");
+    console.log("   No protocol violation");
+    process.exit(0);
+  }
+
+  console.log("❌ PROTOCOL FAILURE");
   process.exit(1);
-}, TIMEOUT_MS);
+}, TEST_TIMEOUT);

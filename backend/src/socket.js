@@ -14,15 +14,19 @@ import {
 let BATCH_SIZE = 100;
 const FLUSH_INTERVAL = 100;
 const MAX_BUFFER = 5000;
+const MAX_CONCURRENT_FLUSHES = 2; // allow 1-2 concurrent DB flushes
+const PRESSURE_FLUSH_AGE = 150; // ms, flush if oldest message exceeds this
+const PRESSURE_FLUSH_SIZE = 500; // bytes, flush if WAL size exceeds this
 
 /* ---------------- STATE ---------------- */
 
-export const messageBuffer = [];
+export const messageBuffer = new Map(); // shardId (roomId) → buffer[]
 export const WAL = []; // write-ahead log
 const presence = new Map(); // userId → { userId, username, status }
 
-let flushing = false;
+let flushSemaphore = 0; // concurrent flush counter
 let lastFlush = Date.now();
+let oldestMessageTime = Date.now();
 let io;
 
 /* ---------------- SOCKET INIT ---------------- */
@@ -59,7 +63,8 @@ export function initSocket(server) {
         status: "online",
       });
 
-      io.emit("presence:update", {
+      // 🔥 CHANGE: broadcast presence only to room members
+      socket.to("global-chat").emit("presence:update", {
         userId,
         username,
         status: "online",
@@ -71,8 +76,8 @@ export function initSocket(server) {
       if (socket.userId) {
         presence.delete(socket.userId);
 
-        /* 🔴 CHANGED: send DELTA */
-        io.emit("presence:update", {
+        /* � CHANGE: send DELTA only to room members */
+        socket.to("global-chat").emit("presence:update", {
           userId: socket.userId,
           status: "offline",
         });
@@ -82,20 +87,17 @@ export function initSocket(server) {
     });
 
     /* ---------- SEND MESSAGE ---------- */
-
-
     socket.on("send-message", ({ userId, username, content }) => {
-
       if (io.engine.clientsCount > 2000) {
         socket.emit("server-busy");
         return;
-      }// hard limit 2k clients
+      } // hard limit 2k clients
 
       const snowflakeId = snowflakeGn.generate();
       const createdAt = new Date();
 
       const message = {
-        socketId: socket.id,
+        socketId: socket.id, // 🔥 store for targeted ACK
         userId,
         snowflake: snowflakeId.toString(),
         username,
@@ -103,21 +105,35 @@ export function initSocket(server) {
         createdAt,
       };
 
-      // later
+      // broadcast to all in room (after DB)
       io.to("global-chat").emit("new-message", {
         ...message,
         createdAt: createdAt.toISOString(),
       });
 
-      if (messageBuffer.length >= MAX_BUFFER) {
+      // 🔥 CHANGE: shard buffer by roomId (or userId % N for fairness)
+      const shardId = "global-chat"; // can extend to userId % N for multi-room
+      if (!messageBuffer.has(shardId)) {
+        messageBuffer.set(shardId, []);
+      }
+
+      const shardBuffer = messageBuffer.get(shardId);
+      if (shardBuffer.length >= MAX_BUFFER) {
         socket.emit("server-busy");
         return;
       }
 
       WAL.push(message);
-      messageBuffer.push(message);
+      shardBuffer.push(message);
+      oldestMessageTime = Math.min(oldestMessageTime, createdAt.getTime());
 
-      if (messageBuffer.length >= BATCH_SIZE) flushMessages();
+      // 🔥 CHANGE: trigger flush by PRESSURE (batch size OR age OR WAL size)
+      if (
+        shardBuffer.length >= BATCH_SIZE ||
+        Date.now() - oldestMessageTime > PRESSURE_FLUSH_AGE
+      ) {
+        flushMessages();
+      }
     });
 
     /* ---------- TYPING ---------- */
@@ -208,57 +224,105 @@ export function initSocket(server) {
 function adjustBatchSize() {
   const delta = Date.now() - lastFlush;
 
-  if (delta < 50) BATCH_SIZE = Math.min(BATCH_SIZE * 2, 1000);
+  if (delta < 50) BATCH_SIZE = Math.min(BATCH_SIZE * 2, 500); // cap at 500 for lower latency variance
   else if (delta > 200) BATCH_SIZE = Math.max(Math.floor(BATCH_SIZE / 2), 50);
 
   lastFlush = Date.now();
 }
 
 async function flushMessages() {
-  if (flushing || messageBuffer.length === 0) return;
-  flushing = true;
+  // 🔥 CHANGE: use semaphore instead of boolean, allow 1-2 concurrent flushes
+  if (flushSemaphore >= MAX_CONCURRENT_FLUSHES) return;
+  if (messageBuffer.size === 0) return;
 
-  adjustBatchSize();
+  flushSemaphore++;
 
-  const batch = messageBuffer.splice(0, BATCH_SIZE);
-  batch.sort((a, b) =>
-    BigInt(a.snowflake) > BigInt(b.snowflake) ? 1 : -1
-  );
   try {
-    const inserted = await db
-      .insert(messages)
-      .values(
-        batch.map((m) => ({
-          userId: m.userId,
-          snowflake: m.snowflake,
-          username: m.username,
-          content: m.content,
-          createdAt: m.createdAt,
-        }))
-      )
-      .returning({
-        id: messages.id,
-        snowflake: messages.snowflake,
-      });
+    adjustBatchSize();
 
-    for (const row of inserted) {
-      io.emit("message:ack", {
-        id: row.id,
-        snowflake: row.snowflake.toString(),
-      });
+    // 🔥 CHANGE: iterate over shards and flush each
+    for (const [shardId, shardBuffer] of messageBuffer.entries()) {
+      if (shardBuffer.length === 0) continue;
+
+      const batch = shardBuffer.splice(0, BATCH_SIZE);
+      batch.sort((a, b) =>
+        BigInt(a.snowflake) > BigInt(b.snowflake) ? 1 : -1
+      );
+
+      try {
+        const inserted = await db
+          .insert(messages)
+          .values(
+            batch.map((m) => ({
+              userId: m.userId,
+              snowflake: m.snowflake,
+              username: m.username,
+              content: m.content,
+              createdAt: m.createdAt,
+            }))
+          )
+          .returning({
+            id: messages.id,
+            snowflake: messages.snowflake,
+          });
+
+        // 🔥 CHANGE: ACK ONLY to sender (targeted, not broadcast)
+        for (const row of inserted) {
+          const message = batch.find((m) => m.snowflake === row.snowflake.toString());
+          if (message) {
+            io.to(message.socketId).emit("message:ack", {
+              id: row.id,
+              snowflake: row.snowflake.toString(),
+            });
+          }
+        }
+
+        // remove from WAL only after successful DB write
+        for (let i = 0; i < batch.length; i++) {
+          const idx = WAL.findIndex(
+            (m) => m.snowflake === batch[i].snowflake
+          );
+          if (idx >= 0) WAL.splice(idx, 1);
+        }
+
+        // update oldest message time if buffer is now empty
+        if (messageBuffer.get(shardId).length === 0) {
+          oldestMessageTime = Date.now();
+        }
+      } catch (err) {
+        console.error("[DB INSERT FAIL]", err.message);
+        // push back to buffer on failure
+        shardBuffer.unshift(...batch);
+        break; // stop processing other shards on error
+      }
     }
-
-    WAL.splice(0, batch.length);
-  } catch (err) {
-    console.error("[DB INSERT FAIL]", err.message);
-    messageBuffer.unshift(...batch);
   } finally {
-    flushing = false;
+    flushSemaphore--;
   }
 }
 
-/* ---------------- INTERVAL ---------------- */
+/* ---------------- INTERVAL & PRESSURE-BASED FLUSH ---------------- */
 
 setInterval(() => {
-  if (messageBuffer.length > 0) flushMessages();
+  // 🔥 CHANGE: trigger flush by PRESSURE, not just timer
+  let shouldFlush = false;
+
+  // condition 1: buffer has messages
+  if (messageBuffer.size > 0) {
+    // condition 2: age of oldest message exceeds threshold
+    if (Date.now() - oldestMessageTime > PRESSURE_FLUSH_AGE) {
+      shouldFlush = true;
+    }
+    // condition 3: any shard has messages ready
+    for (const shard of messageBuffer.values()) {
+      if (shard.length >= BATCH_SIZE) {
+        shouldFlush = true;
+        break;
+      }
+    }
+  }
+
+  if (shouldFlush) {
+    flushMessages();
+  }
 }, FLUSH_INTERVAL);
