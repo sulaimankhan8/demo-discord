@@ -1,5 +1,12 @@
 config:
   target: "https://demo-discord.onrender.com"
+  engine: socketio
+
+  socketio:
+    transports:
+      - websocket
+    upgrade: false
+    path: /socket.io
 
   phases:
     - name: warm-up
@@ -13,13 +20,6 @@ config:
     - name: stress
       duration: 60
       arrivalRate: 40
-
-  engines:
-    socketio:
-      transports:
-        - websocket
-      ws: true
-      path: /socket.io
 
   processor: "./user-generator.js"
 
