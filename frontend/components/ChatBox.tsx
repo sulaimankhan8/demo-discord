@@ -98,21 +98,31 @@ export default function ChatBox() {
       setMessages((prev) => {
         if (prev.find((m) => m.snowflake === msg.snowflake)) return prev;
 
-        const next = [...prev, msg];
-        next.sort((a, b) =>
-          BigInt(a.snowflake) > BigInt(b.snowflake) ? 1 : -1
-        );
-        return next;
+        return [...prev, msg];
+
       });
     });
 
-    socket.on("message:ack", ({ id, snowflake }) => {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.snowflake === snowflake ? { ...m, id } : m
-        )
-      );
-    });
+    // batch ACK
+socket.on("message:ack:batch", ({ snowflakes }) => {
+  setMessages((prev) =>
+    prev.map((m) =>
+      snowflakes.includes(m.snowflake)
+        ? { ...m, id: m.id ?? "persisted" }
+        : m
+    )
+  );
+});
+
+// (optional) keep single ACK handler for safety
+socket.on("message:ack", ({ id, snowflake }) => {
+  setMessages((prev) =>
+    prev.map((m) =>
+      m.snowflake === snowflake ? { ...m, id } : m
+    )
+  );
+});
+
 
     /*socket.on("reaction:update", ({ messageId, emojiCode, delta }) => {
       setMessages((prev) =>
@@ -134,9 +144,10 @@ export default function ChatBox() {
     });*/
 
       return () => {
-      socket.off("new-message");
-      socket.off("message:ack");
-    };
+  socket.off("new-message");
+  socket.off("message:ack");
+  socket.off("message:ack:batch");
+};
   }, []);
 
   /* ---------- typing ---------- */
@@ -152,17 +163,29 @@ export default function ChatBox() {
 
   /* ---------- auto scroll ---------- */
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, typingUser]);
+  bottomRef.current?.scrollIntoView({ behavior: "auto" });
+}, [messages.length]);
+
 
   /* ---------- typing debounce ---------- */
-  const handleTyping = () => {
+  /* const handleTyping = () => {
     socket.emit("typing:start");
     clearTimeout(typingTimer.current);
     typingTimer.current = setTimeout(() => {
       socket.emit("typing:stop");
     }, 1200);
-  };
+  }; */
+
+  const handleTyping = () => {
+  if (!socket.connected) return;
+
+  socket.emit("typing:start");
+  clearTimeout(typingTimer.current);
+  typingTimer.current = setTimeout(() => {
+    socket.emit("typing:stop");
+  }, 1200);
+};
+
 
   /* ---------- send ---------- */
   const send = () => {

@@ -11,9 +11,9 @@ import {
 
 /* ---------------- CONFIG ---------------- */
 
-let BATCH_SIZE = 100;
+let BATCH_SIZE = 200;
 const FLUSH_INTERVAL = 100;
-const MAX_BUFFER = 5000;
+const MAX_BUFFER = 7000;
 const MAX_CONCURRENT_FLUSHES = 2; // allow 1-2 concurrent DB flushes
 const PRESSURE_FLUSH_AGE = 150; // ms, flush if oldest message exceeds this
 const PRESSURE_FLUSH_SIZE = 500; // bytes, flush if WAL size exceeds this
@@ -21,7 +21,7 @@ const PRESSURE_FLUSH_SIZE = 500; // bytes, flush if WAL size exceeds this
 /* ---------------- STATE ---------------- */
 
 export const messageBuffer = new Map(); // shardId (roomId) → buffer[]
-export const WAL = []; // write-ahead log
+export const WAL = new Map(); // write-ahead log
 const presence = new Map(); // userId → { userId, username, status }
 
 let flushSemaphore = 0; // concurrent flush counter
@@ -123,7 +123,7 @@ export function initSocket(server) {
         return;
       }
 
-      WAL.push(message);
+      WAL.set(message.snowflake, message);
       shardBuffer.push(message);
       oldestMessageTime = Math.min(oldestMessageTime, createdAt.getTime());
 
@@ -245,9 +245,7 @@ async function flushMessages() {
       if (shardBuffer.length === 0) continue;
 
       const batch = shardBuffer.splice(0, BATCH_SIZE);
-      batch.sort((a, b) =>
-        BigInt(a.snowflake) > BigInt(b.snowflake) ? 1 : -1
-      );
+      
 
       try {
         const inserted = await db
@@ -266,24 +264,35 @@ async function flushMessages() {
             snowflake: messages.snowflake,
           });
 
-        // 🔥 CHANGE: ACK ONLY to sender (targeted, not broadcast)
-        for (const row of inserted) {
-          const message = batch.find((m) => m.snowflake === row.snowflake.toString());
-          if (message) {
-            io.to(message.socketId).emit("message:ack", {
-              id: row.id,
-              snowflake: row.snowflake.toString(),
-            });
-          }
-        }
+        // 🔥 CHANGE: ACK ONLY to sender (targeted, not broadcast)// batching here too
+        const ackMap = new Map(); // socketId → snowflakes[]
 
-        // remove from WAL only after successful DB write
-        for (let i = 0; i < batch.length; i++) {
-          const idx = WAL.findIndex(
-            (m) => m.snowflake === batch[i].snowflake
-          );
-          if (idx >= 0) WAL.splice(idx, 1);
-        }
+const msgMap = new Map();
+for (const m of batch) {
+  msgMap.set(m.snowflake, m);
+}
+
+for (const row of inserted) {
+  const msg = msgMap.get(row.snowflake.toString());
+  if (!msg) continue;
+
+  if (!ackMap.has(msg.socketId)) {
+    ackMap.set(msg.socketId, []);
+  }
+  ackMap.get(msg.socketId).push(row.snowflake.toString());
+}
+
+for (const [socketId, snowflakes] of ackMap) {
+  io.to(socketId).emit("message:ack:batch", {
+    snowflakes,
+  });
+}
+
+
+        for (const m of batch) {
+  WAL.delete(m.snowflake);
+}
+
 
         // update oldest message time if buffer is now empty
         if (messageBuffer.get(shardId).length === 0) {

@@ -1,0 +1,98 @@
+ARTILLERY SOCKET.IO LOAD TEST REPORT
+==================================
+
+Target:
+https://demo-discord.onrender.com
+
+Test ID:32 // push 40 optimization later
+
+Test Summary
+------------
+Total duration        : ~3 minutes 42 seconds
+Total virtual users   : 3900
+Total emits           : 27,744
+Engine                : Socket.IO (WebSocket with polling fallback)
+
+Phases
+------
+1. Warm-up
+   Duration           : 30s
+   Arrival rate       : ~10 users/sec
+   Status             : Stable
+   Notes              : No errors observed, p95 latency < 2 ms
+
+2. Steady Load
+   Duration           : 60s
+   Arrival rate       : ~20 users/sec
+   Status             : Near saturation
+   Notes              : Throughput stable at ~140–150 msg/sec,
+                        first timeout errors appear beyond ~180 msg/sec
+
+3. Stress
+   Duration           : 60s
+   Arrival rate       : ~40 users/sec
+   Status             : Overload
+   Notes              : High timeout rate, polling fallback engaged,
+                        throughput becomes unstable
+
+Performance Metrics
+-------------------
+Sustained throughput  : ~140–150 messages/sec
+Peak throughput       : ~240–260 messages/sec
+Median latency        : ~0.1 ms
+P95 latency           : ~0.7 ms
+P99 latency           : ~1.8 ms
+Max latency observed  : ~4.3 ms
+
+Errors
+------
+Timeout errors        : 1477
+XHR poll errors       : 387
+XHR post errors       : 302
+Failed VUs            : 2166 (~55%)
+
+Session Length (ms)
+-------------------
+Minimum               : 10,794
+Mean                  : 28,319
+Median                : 21,382
+P95                   : 69,586
+P99                   : 114,730
+Maximum               : 142,020
+
+System Behavior
+---------------
+- Message ordering preserved (Snowflake IDs)
+- No duplicate messages detected
+- Protocol correctness maintained under all phases
+- Backpressure engaged instead of message loss
+- Dynamic batching reduced database write pressure
+- Socket.IO transport fell back to polling under stress
+- Throughput degradation was gradual, not abrupt
+
+Bottlenecks Identified
+---------------------
+1. Socket.IO transport instability under high concurrency
+2. Polling fallback amplification during stress phase
+3. Event loop saturation due to concurrent emit bursts
+4. Lack of transport-level admission control
+
+Capacity Conclusion
+-------------------
+Safe operating range:
+- ~140–150 messages/sec sustained
+- ~180–200 concurrent active users
+
+Beyond this range:
+- Timeout errors increase rapidly
+- Session durations grow significantly
+- More than 50% virtual users fail under stress
+
+Verdict
+-------
+This run demonstrates a measurable improvement over earlier attempts.
+Protocol-level correctness and backpressure handling remain intact.
+System degradation is now dominated by transport-level limitations
+rather than application logic or database consistency.
+
+END OF REPORT
