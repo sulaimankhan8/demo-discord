@@ -54,15 +54,22 @@ socket.on("new-message", (msg) => {
 });
 
 /* ---------- ACK ---------- */
-socket.on("message:ack", ({ snowflake }) => {
-  if (ackedSet.has(snowflake)) {
-    console.error("❌ DUPLICATE ACK:", snowflake);
-    process.exit(1);
+socket.on("message:ack:batch", ({ snowflakes }) => {
+  for (const sf of snowflakes) {
+    if (!ackedSet.has(sf)) {
+      ackedSet.add(sf);
+      acked++;
+    }
   }
-
-  ackedSet.add(snowflake);
-  acked++;
 });
+
+socket.on("message:ack", ({ snowflake }) => {
+  if (!ackedSet.has(snowflake)) {
+    ackedSet.add(snowflake);
+    acked++;
+  }
+});
+
 
 /* ---------- LIVE METRICS ---------- */
 const metricsInterval = setInterval(() => {

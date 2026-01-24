@@ -89,7 +89,14 @@ export default function ChatBox() {
   useEffect(() => {
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/messages`)
       .then((res) => res.json())
-      .then(setMessages);
+      .then((data) => {
+  if (!Array.isArray(data)) {
+    console.error("Invalid messages payload:", data);
+    return;
+  }
+  setMessages(data);
+});
+
   }, []);
 
   /* ---------- realtime messages ---------- */

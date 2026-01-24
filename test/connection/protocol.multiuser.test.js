@@ -71,6 +71,20 @@ socket.on("new-message", (msg) => {
 });
 
 /* ---------------- ACK ---------------- */
+socket.on("message:ack:batch", ({ snowflakes }) => {
+  for (const sf of snowflakes) {
+    if (ackedSet.has(sf)) {
+      console.error("❌ DUPLICATE ACK");
+      process.exit(1);
+    }
+
+    ackedSet.add(sf);
+    acked++;
+
+    const t0 = sentAt.get(sf);
+    if (t0) ackLatencies.push(Date.now() - t0);
+  }
+});
 
 socket.on("message:ack", ({ snowflake }) => {
   if (ackedSet.has(snowflake)) {

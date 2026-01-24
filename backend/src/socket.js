@@ -245,7 +245,7 @@ async function flushMessages() {
       if (shardBuffer.length === 0) continue;
 
       const batch = shardBuffer.splice(0, BATCH_SIZE);
-      
+
 
       try {
         const inserted = await db
@@ -267,31 +267,31 @@ async function flushMessages() {
         // 🔥 CHANGE: ACK ONLY to sender (targeted, not broadcast)// batching here too
         const ackMap = new Map(); // socketId → snowflakes[]
 
-const msgMap = new Map();
-for (const m of batch) {
-  msgMap.set(m.snowflake, m);
-}
+        const msgMap = new Map();
+        for (const m of batch) {
+          msgMap.set(m.snowflake, m);
+        }
 
-for (const row of inserted) {
-  const msg = msgMap.get(row.snowflake.toString());
-  if (!msg) continue;
+        for (const row of inserted) {
+          const msg = msgMap.get(row.snowflake.toString());
+          if (!msg) continue;
 
-  if (!ackMap.has(msg.socketId)) {
-    ackMap.set(msg.socketId, []);
-  }
-  ackMap.get(msg.socketId).push(row.snowflake.toString());
-}
+          if (!ackMap.has(msg.socketId)) {
+            ackMap.set(msg.socketId, []);
+          }
+          ackMap.get(msg.socketId).push(row.snowflake.toString());
+        }
 
-for (const [socketId, snowflakes] of ackMap) {
-  io.to(socketId).emit("message:ack:batch", {
-    snowflakes,
-  });
-}
+        for (const [socketId, snowflakes] of ackMap) {
+          io.to(socketId).emit("message:ack:batch", {
+            snowflakes,
+          });
+        }
 
 
         for (const m of batch) {
-  WAL.delete(m.snowflake);
-}
+          WAL.delete(m.snowflake);
+        }
 
 
         // update oldest message time if buffer is now empty
