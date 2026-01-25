@@ -34,8 +34,17 @@ export default function ChatBox() {
   const [typingUser, setTypingUser] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(false);
 
+  
+  /* 🔥 NEW — history state */
+  const [hasMoreHistory, setHasMoreHistory] = useState(true);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const oldestSnowflakeRef = useRef<string | null>(null);
+  /* ======================================================== */
+
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null); // 🔥 NEW
   const typingTimer = useRef<any>(null);
+  const isPrependingRef = useRef(false);
 
   /* ---------- load user ---------- */
   useEffect(() => {
@@ -86,19 +95,70 @@ export default function ChatBox() {
 }, []);
 
 
-  /* ---------- load history ---------- */
+    /* ---------- 🔥 INITIAL HISTORY LOAD ---------- */
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/messages`)
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/messages?limit=50`)
       .then((res) => res.json())
       .then((data) => {
-  if (!Array.isArray(data)) {
-    console.error("Invalid messages payload:", data);
-    return;
-  }
-  setMessages(data);
-});
+        if (!Array.isArray(data.messages ?? data)) {
+          console.error("Invalid messages payload:", data);
+          return;
+        }
 
+        const msgs = data.messages ?? data;
+
+        setMessages(msgs);
+        setHasMoreHistory(data.hasMore ?? true);
+
+        if (msgs.length > 0) {
+          oldestSnowflakeRef.current = msgs[0].snowflake;
+        }
+      });
   }, []);
+
+  /* 🔥 NEW — LOAD OLDER HISTORY */
+  const loadOlderHistory = async () => {
+    if (!hasMoreHistory || loadingHistory || !oldestSnowflakeRef.current) return;
+
+    setLoadingHistory(true);
+
+    const container = containerRef.current;
+    const prevHeight = container?.scrollHeight ?? 0;
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/messages?limit=50&before=${oldestSnowflakeRef.current}`
+    );
+    const data = await res.json();
+
+    const older = data.messages ?? data;
+
+    if (older.length > 0) {
+      oldestSnowflakeRef.current = older[0].snowflake;
+      isPrependingRef.current = true;
+      setMessages((prev) => [...older, ...prev]);
+    }
+
+    setHasMoreHistory(data.hasMore ?? older.length === 50);
+    setLoadingHistory(false);
+
+    // 🔥 Preserve scroll position
+    requestAnimationFrame(() => {
+      if (container) {
+        container.scrollTop =
+          container.scrollHeight - prevHeight + container.scrollTop;
+      }
+    });
+  };
+
+  /* 🔥 NEW — SCROLL DETECTION */
+   const handleScroll = () => {
+    if (loadingHistory || !hasMoreHistory) return;
+    if (!containerRef.current) return;
+    if (containerRef.current.scrollTop < 120) {
+      loadOlderHistory();
+    }
+  };
+
 
   /* ---------- realtime messages ---------- */
    useEffect(() => {
@@ -171,8 +231,13 @@ socket.on("message:ack", ({ id, snowflake }) => {
 
   /* ---------- auto scroll ---------- */
   useEffect(() => {
+  if (isPrependingRef.current) {
+    isPrependingRef.current = false;
+    return;
+  }
   bottomRef.current?.scrollIntoView({ behavior: "auto" });
 }, [messages.length]);
+
 
 
   /* ---------- typing debounce ---------- */
@@ -320,7 +385,24 @@ socket.on("message:ack", ({ id, snowflake }) => {
       {/* ================= RIGHT — CHAT ================= */}
       <div className="flex-1 flex flex-col h-full max-w-4xl mx-auto w-full">
         {/* -------- Messages (scrollable) -------- */}
-        <div className="flex-1 overflow-y-auto p-4 bg-gray-900">
+        <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-4 bg-gray-900"
+      >
+        {/* 🔥 START OF HISTORY MARKER */}
+        {!hasMoreHistory && (
+          <div className="text-center text-xs text-gray-500 my-4">
+            — Start of history —
+          </div>
+        )}
+
+        {loadingHistory && (
+          <div className="text-center text-xs text-gray-400 my-2">
+            Loading older messages…
+          </div>
+        )}
+
           {Object.entries(messageGroups).map(([dateKey, dateMessages]) => (
             <div key={dateKey}>
               {/* Date separator */}

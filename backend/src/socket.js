@@ -16,7 +16,7 @@ const FLUSH_INTERVAL = 100;
 const MAX_BUFFER = 7000;
 const MAX_CONCURRENT_FLUSHES = 2; // allow 1-2 concurrent DB flushes
 const PRESSURE_FLUSH_AGE = 150; // ms, flush if oldest message exceeds this
-const PRESSURE_FLUSH_SIZE = 500; // bytes, flush if WAL size exceeds this
+//const PRESSURE_FLUSH_SIZE = 500; // bytes, flush if WAL size exceeds this
 
 /* ---------------- STATE ---------------- */
 
@@ -28,6 +28,18 @@ let flushSemaphore = 0; // concurrent flush counter
 let lastFlush = Date.now();
 let oldestMessageTime = Date.now();
 let io;
+
+/* ---------------- 🔥 NEW: RECENT MESSAGE CACHE ---------------- */
+// Keeps ONLY last 100 messages in memory (constant memory)
+export const recentMessages = [];
+const RECENT_LIMIT = 100;
+
+function pushRecent(message) {
+  recentMessages.push(message);
+  if (recentMessages.length > RECENT_LIMIT) {
+    recentMessages.shift();
+  }
+}
 
 /* ---------------- SOCKET INIT ---------------- */
 const snowflakeGn = new Snowflake({
@@ -110,6 +122,12 @@ export function initSocket(server) {
 
       // broadcast to all in room (after DB)
       io.to("global-chat").emit("new-message", {
+        ...message,
+        createdAt: createdAt.toISOString(),
+      });
+
+      // 🔥 NEW: push to recent in-memory cache
+      pushRecent({
         ...message,
         createdAt: createdAt.toISOString(),
       });
@@ -236,7 +254,9 @@ function adjustBatchSize() {
 async function flushMessages() {
   // 🔥 CHANGE: use semaphore instead of boolean, allow 1-2 concurrent flushes
   if (flushSemaphore >= MAX_CONCURRENT_FLUSHES) return;
-  if (messageBuffer.size === 0) return;
+  const hasData = [...messageBuffer.values()].some(b => b.length > 0);
+if (!hasData) return;
+
 
   flushSemaphore++;
 
