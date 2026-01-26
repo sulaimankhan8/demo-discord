@@ -8,8 +8,10 @@ type UserPresence = {
   status: "online" | "offline";
 };
 
+
 type Message = {
   id?: string;
+  delivered?: boolean;
   snowflake: string;
   userId?: string;
   username: string;
@@ -176,20 +178,23 @@ socket.on("message:ack:batch", ({ snowflakes }) => {
   setMessages((prev) =>
     prev.map((m) =>
       snowflakes.includes(m.snowflake)
-        ? { ...m, id: m.id ?? "persisted" }
+        ? { ...m, delivered: true  }
         : m
     )
   );
 });
 
 // (optional) keep single ACK handler for safety
-socket.on("message:ack", ({ id, snowflake }) => {
+socket.on("message:ack", ({ snowflake }) => {
   setMessages((prev) =>
     prev.map((m) =>
-      m.snowflake === snowflake ? { ...m, id } : m
+      m.snowflake === snowflake
+        ? { ...m, delivered: true }
+        : m
     )
   );
 });
+
 
 
     /*socket.on("reaction:update", ({ messageId, emojiCode, delta }) => {
@@ -305,9 +310,9 @@ socket.on("message:ack", ({ id, snowflake }) => {
     }
   };
 
-  const getDeliveryStatus = (m: Message) => {
-  if (!m.id) return "sent";
-  return "delivered";
+ const getDeliveryStatus = (m: Message) => {
+  if (m.delivered) return "delivered";
+  return "sent";
 };
 
   // Group messages by date

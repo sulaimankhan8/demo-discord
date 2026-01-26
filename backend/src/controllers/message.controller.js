@@ -10,13 +10,7 @@ export async function getMessages(req, res) {
 
     /* ---------------- DB QUERY ---------------- */
 
-     if (!before && recentMessages.length > 0) {
-      const slice = recentMessages.slice(-LIMIT);
-      return res.json({
-        messages: slice,
-        hasMore: true,
-      });
-    }
+
 
     let query = db
       .select({
@@ -42,7 +36,7 @@ export async function getMessages(req, res) {
       .flat()
       .filter((m) => !before || BigInt(m.snowflake) < before)
       .map((m) => ({
-        id: null,
+        id: m.id ?? null,
         userId: m.userId,
         username: m.username,
         content: m.content,
@@ -50,20 +44,33 @@ export async function getMessages(req, res) {
         createdAt: m.createdAt,
       }));
 
-    /* ---------------- MERGE & SORT ---------------- */
-    const merged = [...dbMessages, ...buffered]
-      .reduce((map, m) => {
-        map.set(m.snowflake.toString(), m);
-        return map;
-      }, new Map())
-      .values();
+      /* ---------------- RECENT CACHE (hot accelerator) ---------------- */
 
-    const ordered = [...merged]
-      .sort((a, b) =>
-        BigInt(a.snowflake) > BigInt(b.snowflake) ? 1 : -1
-      )
-      .slice(-LIMIT)
-      .map((m) => ({ ...m, snowflake: m.snowflake.toString() }));
+    const recent = recentMessages
+      .filter(m => !before || BigInt(m.snowflake) < before)
+      .map(m => ({
+        ...m,
+        id: null,
+      }));
+
+    /* ---------------- MERGE & SORT ---------------- */
+    const mergedMap = new Map();
+
+    for (const m of [...dbMessages, ...walMessages, ...recent]) {
+      mergedMap.set(m.snowflake.toString(), m);
+    }
+
+    const ordered = [...mergedMap.values()]
+  .sort((a, b) =>
+    BigInt(a.snowflake) > BigInt(b.snowflake) ? 1 : -1
+  )
+  .slice(-LIMIT)
+  .map((m) => ({
+    ...m,
+    snowflake: m.snowflake.toString(),
+    delivered: !!m.id, // 🔥 THIS LINE
+  }));
+
 
     /* ---------------- START-OF-HISTORY FLAG ---------------- */
     const hasMore = ordered.length === LIMIT;
