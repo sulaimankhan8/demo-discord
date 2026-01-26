@@ -305,6 +305,11 @@ socket.on("message:ack", ({ id, snowflake }) => {
     }
   };
 
+  const getDeliveryStatus = (m: Message) => {
+  if (!m.id) return "sent";
+  return "delivered";
+};
+
   // Group messages by date
   const groupMessagesByDate = (messages: Message[]) => {
     const groups: { [date: string]: Message[] } = {};
@@ -447,7 +452,17 @@ socket.on("message:ack", ({ id, snowflake }) => {
                           )}
                           
                           <div className={`${isMe ? "bg-indigo-600 text-white" : "bg-gray-800 text-gray-100"} px-4 py-2 rounded-lg ${isMe ? "rounded-br-sm" : "rounded-bl-sm"} relative`}>
-                            <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>
+                            <div className="text-sm whitespace-pre-wrap break-words">
+  {m.content}
+</div>
+
+{isMe && (
+  <div className="mt-1 text-[10px] text-gray-400 text-right">
+    {getDeliveryStatus(m) === "sent" && "✔"}
+    {getDeliveryStatus(m) === "delivered" && "✔✔"}
+  </div>
+)}
+
                             
                             {/* Timestamp - only visible on hover for desktop */}
                             <div className={`absolute ${isMe ? "left-0 -translate-x-full" : "right-0 translate-x-full"} top-0 text-xs text-gray-400 px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap`}>
