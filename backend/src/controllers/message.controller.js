@@ -32,7 +32,7 @@ export async function getMessages(req, res) {
     const dbMessages = await query;
 
     /* ---------------- IN-MEMORY (WAL) ---------------- */
-    const buffered = Array.from(messageBuffer.values())
+    const walMessages  = Array.from(messageBuffer.values())
       .flat()
       .filter((m) => !before || BigInt(m.snowflake) < before)
       .map((m) => ({
