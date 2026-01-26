@@ -8,6 +8,22 @@ export async function getMessages(req, res) {
     const LIMIT = Math.min(Number(req.query.limit ?? 50), 100);
     const before = req.query.before ? BigInt(req.query.before) : null;
 
+    /* ---------------- DB SHORT-CIRCUIT (no pagination + recent cache full + no WAL) ---------------- */
+    const canSkipDb =
+      !before &&
+      recentMessages.length >= LIMIT &&
+      messageBuffer.size === 0;
+
+    if (canSkipDb) {
+      return res.json({
+        messages: recentMessages.slice(-LIMIT).map(m => ({
+          ...m,
+          delivered: true,
+        })),
+        hasMore: true,
+      });
+    }
+
     /* ---------------- DB QUERY ---------------- */
 
 
@@ -53,10 +69,11 @@ export async function getMessages(req, res) {
         id: null,
       }));
 
-    /* ---------------- MERGE & SORT ---------------- */
+    /* ---------------- MERGE & SORT (DB wins > WAL > recent) ---------------- */
     const mergedMap = new Map();
 
-    for (const m of [...dbMessages, ...walMessages, ...recent]) {
+    // Merge order: recent < WAL < DB (ensures DB is source of truth)
+    for (const m of [...recent, ...walMessages, ...dbMessages]) {
       mergedMap.set(m.snowflake.toString(), m);
     }
 
