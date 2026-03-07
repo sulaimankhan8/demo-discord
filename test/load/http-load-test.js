@@ -7,25 +7,14 @@ export const options = {
       executor: "ramping-vus",
       startVUs: 0,
       stages: [
-        { duration: "10s", target: 20 },
-        { duration: "10s", target: 50 },
-        { duration: "10s", target: 100 },
-        { duration: "10s", target: 200 },
-        { duration: "10s", target: 250 },
-        { duration: "10s", target: 300 },
-        { duration: "10s", target: 350 },
-        { duration: "10s", target: 400 },
-        { duration: "10s", target: 600 },
-        { duration: "10s", target: 800 },
-        { duration: "10s", target: 1000 },
-        { duration: "10s", target: 1100 },
-        { duration: "10s", target: 0 },
+        { duration: "10s", target: 1 },
+      
       ],
     },
   },
 };
 
-const BASE_URL = "https://demo-discord.onrender.com";
+const BASE_URL = "http://43.204.147.168:4000";
 
 export default function () {
   const username = `user_${__VU}_${__ITER}`;

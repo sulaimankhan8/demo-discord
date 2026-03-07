@@ -1,5 +1,6 @@
 import { Server } from "socket.io";
 import { db } from "./db/index.js";
+import { initVoiceNamespace } from "./voice/voice.socket.js";
 import { and, eq, sql } from "drizzle-orm";
 
 import Snowflake from "./snowflake.js";
@@ -56,6 +57,8 @@ export function initSocket(server) {
   pingTimeout: 20000,
   });
 
+  initVoiceNamespace(io);
+  
   io.on("connection", (socket) => {
     /* realtime */
     socket.join("global-chat");
@@ -120,7 +123,7 @@ export function initSocket(server) {
         createdAt,
       };
 
-      // broadcast to all in room (after DB)
+
       io.to("global-chat").emit("new-message", {
         ...message,
         createdAt: createdAt.toISOString(),

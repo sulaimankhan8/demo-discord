@@ -21,7 +21,7 @@ export default function Page() {
 
       const user = await res.json();
       localStorage.setItem("user", JSON.stringify(user));
-      router.push("/chat");
+      router.push("/dashboard");
     } catch (error) {
       console.error("Login failed:", error);
       alert("Login failed. Check console.");

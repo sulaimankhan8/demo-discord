@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import { getSocket } from "@/lib/socket";
+import Link from "next/link";
+import { useAuthSocket } from "@/hooks/useAuthSocket";
 
 type UserPresence = {
   userId: string;
@@ -29,6 +31,8 @@ const EMOJIS = [
 export default function ChatBox() {
   const socket = getSocket();
 
+  useAuthSocket();
+  
   const [messages, setMessages] = useState<Message[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<UserPresence[]>([]);
   const [input, setInput] = useState("");
@@ -56,10 +60,7 @@ export default function ChatBox() {
     const u = JSON.parse(stored);
     setUser(u);
 
-    socket.emit("presence:online", {
-      userId: u.id,
-      username: u.username, // ✅ IMPORTANT
-    });
+    
   }, []);
 
   /* ---------- presence ---------- */
@@ -394,6 +395,19 @@ socket.on("message:ack", ({ snowflake }) => {
 
       {/* ================= RIGHT — CHAT ================= */}
       <div className="flex-1 flex flex-col h-full max-w-4xl mx-auto w-full">
+    
+
+        <div className="p-3 bg-gray-800 flex justify-between items-center">
+  <h2 className="font-semibold"># general</h2>
+  <div className="flex gap-3">
+    <Link href="/voice" className="text-green-400 hover:underline">
+      Go to Voice
+    </Link>
+    <Link href="/dashboard" className="text-gray-400 hover:underline">
+      Back
+    </Link>
+  </div>
+</div>
         {/* -------- Messages (scrollable) -------- */}
         <div
         ref={containerRef}
