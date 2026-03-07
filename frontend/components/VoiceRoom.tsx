@@ -21,6 +21,7 @@ export default function VoiceRoom() {
   const [peers, setPeers] = useState<PeerVideo[]>([]);
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
+  const [activeSpeaker, setActiveSpeaker] = useState<string | null>(null);
 
   const socketRef = useRef<any>(null);
   const deviceRef = useRef<any>(null);
@@ -29,7 +30,8 @@ export default function VoiceRoom() {
   const audioProducerRef = useRef<any>(null);
   const videoProducerRef = useRef<any>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
-  const [activeSpeaker, setActiveSpeaker] = useState<string | null>(null);
+  const joiningRef = useRef(false);
+
   const router = useRouter();
   useAuthSocket();
 
@@ -38,36 +40,54 @@ export default function VoiceRoom() {
     if (!stored) router.push("/");
   }, []);
 
- const leaveVoice = () => {
-  audioProducerRef.current?.close();
-  videoProducerRef.current?.close();
+  /* -------------------------------- LEAVE VOICE -------------------------------- */
 
-  sendTransportRef.current?.close();
-  recvTransportRef.current?.close();
+  const leaveVoice = () => {
+    audioProducerRef.current?.close();
+    videoProducerRef.current?.close();
 
-  localStreamRef.current?.getTracks().forEach((t) => t.stop());
+    sendTransportRef.current?.close();
+    recvTransportRef.current?.close();
 
-  if (socketRef.current) {
-    socketRef.current.removeAllListeners();
-    socketRef.current.disconnect();
-  }
+    localStreamRef.current?.getTracks().forEach((t) => t.stop());
 
-  setMuted(false);
-setCameraOff(false);
+    if (socketRef.current) {
+      socketRef.current.emit("voice:leaveRoom");
+      socketRef.current.removeAllListeners();
+      socketRef.current.disconnect();
+    }
 
-  socketRef.current = null;
-  deviceRef.current = null;
-  sendTransportRef.current = null;
-  recvTransportRef.current = null;
-  audioProducerRef.current = null;
-  videoProducerRef.current = null;
+    socketRef.current = null;
+    deviceRef.current = null;
+    sendTransportRef.current = null;
+    recvTransportRef.current = null;
+    audioProducerRef.current = null;
+    videoProducerRef.current = null;
 
-  setPeers([]);
-  setJoined(false);
-};
-  
+    setMuted(false);
+    setCameraOff(false);
+    setPeers([]);
+    setJoined(false);
+  };
 
-  /* Cleanup on unmount */
+  /* -------------------------------- TAB VISIBILITY -------------------------------- */
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) {
+        videoProducerRef.current?.pause();
+      } else {
+        videoProducerRef.current?.resume();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
+
+  /* -------------------------------- CLEANUP -------------------------------- */
+
   useEffect(() => {
     return () => {
       socketRef.current?.disconnect();
@@ -76,170 +96,233 @@ setCameraOff(false);
     };
   }, []);
 
- const joinVoice = async () => {
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  /* -------------------------------- JOIN VOICE -------------------------------- */
 
-  const socket = getVoiceSocket();
-  socket.removeAllListeners();
-  socketRef.current = socket;
+  const joinVoice = async () => {
+    if (joiningRef.current || joined) return;
+    joiningRef.current = true;
 
-  const device = new mediasoupClient.Device();
-  deviceRef.current = device;
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-  /* ---------- ATTACH LISTENERS FIRST ---------- */
+      const socket = getVoiceSocket();
 
-  socket.on("voice:existingProducers", async (producers) => {
-    for (const producer of producers) {
-      await consume(
-        producer.producerId,
-        producer.username,
-        producer.socketId
+      socket.off("voice:existingProducers");
+      socket.off("voice:newProducer");
+      socket.off("voice:activeSpeaker");
+      socket.off("voice:peerLeft");
+      socket.off("voice:producerClosed");
+
+      socketRef.current = socket;
+
+      const device = new mediasoupClient.Device();
+      deviceRef.current = device;
+
+      /* ---------- SOCKET LISTENERS ---------- */
+
+      socket.on("voice:existingProducers", async (producers) => {
+        for (const producer of producers) {
+          await consume(
+            producer.producerId,
+            producer.username,
+            producer.socketId
+          );
+        }
+      });
+
+      socket.on("voice:newProducer", async ({ producerId, username, socketId }) => {
+        await consume(producerId, username, socketId);
+      });
+
+      socket.on("voice:peerLeft", ({ socketId }) => {
+        setPeers((prev) => prev.filter((p) => p.socketId !== socketId));
+      });
+
+      socket.on("voice:producerClosed", ({ producerId }) => {
+        setPeers((prev) =>
+          prev.filter((peer) => {
+            const tracks = peer.stream
+              .getTracks()
+              .filter((t) => t.id !== producerId);
+            peer.stream = new MediaStream(tracks);
+            return peer.stream.getTracks().length > 0;
+          })
+        );
+      });
+
+      socket.on("voice:activeSpeaker", ({  socketId }) => {
+          console.log("Active speaker producer:", socketId);
+        setActiveSpeaker(socketId);
+
+       /*  setTimeout(() => {
+          setActiveSpeaker(null);
+        }, 1200); */
+      });
+
+      /* ---------- CONNECT ---------- */
+
+      if (!socket.connected) {
+        await new Promise<void>((resolve) => {
+          socket.on("connect", () => resolve());
+        });
+      }
+
+      socket.emit("voice:joinRoom", {
+        roomId: ROOM_ID,
+        username: user.username,
+      });
+
+      /* ---------- LOAD DEVICE ---------- */
+
+      const rtpCapabilities = await new Promise<any>((res) =>
+        socket.emit("voice:getRtpCapabilities", null, res)
       );
+
+      await device.load({ routerRtpCapabilities: rtpCapabilities });
+
+      /* ---------- SEND TRANSPORT ---------- */
+
+      const sendParams = await new Promise<any>((res) =>
+        socket.emit("voice:createTransport", { type: "send" }, res)
+      );
+
+      const sendTransport = device.createSendTransport(sendParams);
+      sendTransportRef.current = sendTransport;
+
+      sendTransport.on("connect", ({ dtlsParameters }, callback) => {
+        socket.emit(
+          "voice:connectTransport",
+          { type: "send", dtlsParameters },
+          () => callback()
+        );
+      });
+
+      sendTransport.on("produce", ({ kind, rtpParameters }, callback) => {
+        socket.emit("voice:produce", { kind, rtpParameters }, ({ id }) =>
+          callback({ id })
+        );
+      });
+
+      /* ---------- RECV TRANSPORT ---------- */
+
+      const recvParams = await new Promise<any>((res) =>
+        socket.emit("voice:createTransport", { type: "recv" }, res)
+      );
+
+      const recvTransport = device.createRecvTransport(recvParams);
+      recvTransportRef.current = recvTransport;
+
+      recvTransport.on("connect", ({ dtlsParameters }, callback) => {
+        socket.emit(
+          "voice:connectTransport",
+          { type: "recv", dtlsParameters },
+          () => callback()
+        );
+      });
+
+      /* ---------- TRANSPORT STATE ---------- */
+
+      sendTransport.on("connectionstatechange", (state) => {
+        if (state === "failed" || state === "closed") {
+          console.log("Send transport failed");
+          leaveVoice();
+        }
+      });
+
+      recvTransport.on("connectionstatechange", (state) => {
+        if (state === "failed" || state === "closed") {
+          console.log("Recv transport failed");
+          leaveVoice();
+        }
+      });
+
+      /* ---------- GET MEDIA ---------- */
+
+      let stream: MediaStream;
+
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            noiseSuppression: true,
+            echoCancellation: true,
+          },
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+        });
+      } catch (err) {
+        console.error("Media permission denied", err);
+        alert("Camera or microphone permission denied.");
+        return;
+      }
+
+      localStreamRef.current = stream;
+
+      /* ---------- PRODUCE AUDIO ---------- */
+
+      
+      const audioTrack = stream.getAudioTracks()[0];
+
+      if (audioTrack  && device.canProduce("audio")) {
+        audioProducerRef.current = await sendTransport.produce({
+          track: audioTrack,
+          codecOptions: {
+            opusDtx: true,
+            opusFec: true,
+          },
+        });
+      }else {
+  console.warn("Audio production not supported by device");
+}
+
+      /* ---------- PRODUCE VIDEO ---------- */
+
+      const videoTrack = stream.getVideoTracks()[0];
+
+      if (videoTrack && device.canProduce("video")) {
+        videoProducerRef.current = await sendTransport.produce({
+          track: videoTrack,
+          encodings: [
+            { maxBitrate: 150000 },
+            { maxBitrate: 500000 },
+            { maxBitrate: 1200000 },
+          ],
+        });
+      }
+
+      socket.emit("voice:getProducers");
+
+      setPeers([
+        {
+          socketId: socket.id,
+          username: user.username,
+          stream,
+          isSelf: true,
+        },
+      ]);
+
+      setJoined(true);
+    } catch (err) {
+      console.error("Join voice failed:", err);
+    } finally {
+      joiningRef.current = false;
     }
-  });
+  };
 
-  socket.on("voice:newProducer", async ({ producerId, username, socketId }) => {
-    await consume(producerId, username, socketId);
-  });
-
-  socket.on("voice:activeSpeaker", ({ producerId }) => {
-  setActiveSpeaker(producerId);
-});
-
-  socket.on("voice:peerLeft", ({ socketId }) => {
-      setPeers((prev) => prev.filter((p) => p.socketId !== socketId));
-    });
-
-
-  socket.on("voice:producerClosed", ({ producerId }) => {
-    setPeers((prev) =>
-      prev.filter((peer) => {
-        const tracks = peer.stream
-          .getTracks()
-          .filter((t) => t.id !== producerId);
-        peer.stream = new MediaStream(tracks);
-        return peer.stream.getTracks().length > 0;
-      })
-    );
-  });
-
-  /* ---------- CONNECT ---------- */
-
-  if (!socket.connected) {
-    await new Promise<void>((resolve) => {
-      socket.on("connect", () => resolve());
-    });
-  }
-
-  /* ---------- JOIN ROOM AFTER LISTENERS ---------- */
-
-  socket.emit("voice:joinRoom", {
-    roomId: ROOM_ID,
-    username: user.username,
-  });
-
-  /* ---------- LOAD DEVICE ---------- */
-
-  const rtpCapabilities = await new Promise<any>((res) =>
-    socket.emit("voice:getRtpCapabilities", null, res)
-  );
-
-  await device.load({ routerRtpCapabilities: rtpCapabilities });
-
-  /* ---------- CREATE SEND TRANSPORT ---------- */
-
-  const sendParams = await new Promise<any>((res) =>
-    socket.emit("voice:createTransport", { type: "send" }, res)
-  );
-
-  const sendTransport = device.createSendTransport(sendParams);
-  sendTransportRef.current = sendTransport;
-
-  sendTransport.on("connect", ({ dtlsParameters }, callback) => {
-    socket.emit(
-      "voice:connectTransport",
-      { type: "send", dtlsParameters },
-      () => callback()
-    );
-  });
-
-  sendTransport.on("produce", ({ kind, rtpParameters }, callback) => {
-    socket.emit("voice:produce", { kind, rtpParameters }, ({ id }) =>
-      callback({ id })
-    );
-  });
-
-  /* ---------- CREATE RECV TRANSPORT ---------- */
-
-  const recvParams = await new Promise<any>((res) =>
-    socket.emit("voice:createTransport", { type: "recv" }, res)
-  );
-
-  const recvTransport = device.createRecvTransport(recvParams);
-  recvTransportRef.current = recvTransport;
-
-  recvTransport.on("connect", ({ dtlsParameters }, callback) => {
-    socket.emit(
-      "voice:connectTransport",
-      { type: "recv", dtlsParameters },
-      () => callback()
-    );
-  });
-  /* ---------- GET MEDIA ---------- */
-
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      noiseSuppression: true,
-      echoCancellation: true,
-    },
-    video: {
-      width: { ideal: 1280 },
-      height: { ideal: 720 },
-    },
-  });
-
-  audioProducerRef.current = await sendTransport.produce({
-    track: stream.getAudioTracks()[0],
-  });
-
-  videoProducerRef.current = await sendTransport.produce({
-    track: stream.getVideoTracks()[0],
-    encodings: [
-    { maxBitrate: 150000 },
-    { maxBitrate: 500000 },
-    { maxBitrate: 1200000 }
-  ]
-  });
-
-  socket.emit("voice:getProducers");
-
-  setPeers([
-    {
-      socketId: socket.id,
-      username: user.username,
-      stream,
-      isSelf: true,
-    },
-  ]);
-
-  setJoined(true);
-};
-
-  /* ---------------- CONSUME ---------------- */
+  /* -------------------------------- CONSUME -------------------------------- */
 
   const consume = async (
     producerId: string,
     username: string,
     socketId: string
   ) => {
-    
     const socket = socketRef.current;
-      if (socket.id === socketId) return;
-
+    if (!socket || socket.id === socketId) return;
 
     const device = deviceRef.current;
     const recvTransport = recvTransportRef.current;
-   
+
     if (!device || !recvTransport) return;
 
     const data: any = await new Promise((res) =>
@@ -277,7 +360,7 @@ setCameraOff(false);
     });
   };
 
-  /* ---------------- UI ---------------- */
+  /* -------------------------------- UI -------------------------------- */
 
   return (
     <div className="h-screen bg-gray-900 text-white flex flex-col">
@@ -305,17 +388,27 @@ setCameraOff(false);
               gridTemplateColumns: `repeat(auto-fit, minmax(250px, 1fr))`,
             }}
           >
+            
             {peers.map((peer) => (
               <div
                 key={peer.socketId}
-                className="relative bg-black rounded-lg overflow-hidden"
+                className={`relative bg-black rounded-lg overflow-hidden ${activeSpeaker === peer.socketId
+                    ? "ring-4 ring-green-400" 
+                    : "ring-5 ring-red-700" 
+                  }`}
+
               >
+               
                 <video
                   autoPlay
                   playsInline
                   muted={peer.isSelf}
                   ref={(video) => {
-                    if (video) video.srcObject = peer.stream;
+                    if (!video) return;
+
+                    if (video.srcObject !== peer.stream) {
+                      video.srcObject = peer.stream;
+                    }
                   }}
                   className="w-full h-full object-cover"
                 />
@@ -330,8 +423,8 @@ setCameraOff(false);
             <button
               onClick={() => {
                 muted
-                  ? audioProducerRef.current.resume()
-                  : audioProducerRef.current.pause();
+                  ? audioProducerRef.current?.resume()
+                  : audioProducerRef.current?.pause();
                 setMuted(!muted);
               }}
               className="px-4 py-2 bg-yellow-600 rounded"
@@ -339,17 +432,18 @@ setCameraOff(false);
               {muted ? "Unmute" : "Mute"}
             </button>
 
-              <button
+            <button
               onClick={leaveVoice}
-              className="px-4 py-2 bg-yellow-600 rounded"
+              className="px-4 py-2 bg-red-600 rounded"
             >
-              {"Leave"}
+              Leave
             </button>
+
             <button
               onClick={() => {
                 cameraOff
-                  ? videoProducerRef.current.resume()
-                  : videoProducerRef.current.pause();
+                  ? videoProducerRef.current?.resume()
+                  : videoProducerRef.current?.pause();
                 setCameraOff(!cameraOff);
               }}
               className="px-4 py-2 bg-blue-600 rounded"
@@ -362,9 +456,6 @@ setCameraOff(false);
     </div>
   );
 }
-
-
-
 
 /*
 Tab A:
