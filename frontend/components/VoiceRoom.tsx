@@ -295,7 +295,7 @@ export default function VoiceRoom() {
 
       setPeers([
         {
-          socketId: socket.id,
+          socketId: socket.id!,
           username: user.username,
           stream,
           isSelf: true,
