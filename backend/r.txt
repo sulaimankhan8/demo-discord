@@ -1,0 +1,40 @@
+server/
+│
+├── app.js
+├── server.js
+│
+├── socket/
+│   ├── index.js
+│   │
+│   ├── namespaces/
+│   │   ├── chat.namespace.js
+│   │   ├── presence.namespace.js
+│   │   └── voice.namespace.js
+│   │
+│   ├── handlers/
+│   │   ├── chat.handler.js
+│   │   ├── typing.handler.js
+│   │   └── presence.handler.js
+│   │
+│   ├── services/
+│   │   ├── messageBuffer.service.js
+│   │   └── flush.service.js
+│   │
+│   └── stores/
+│       ├── presence.store.js
+│       └── message.store.js
+│
+├── voice/
+│   ├── mediasoup.js
+│
+├── db/
+│   ├── index.js
+│   └── schema.js
+│
+├── routes/
+│   ├── auth.routes.js
+│   ├── message.routes.js
+│   └── user.routes.js
+│
+└── utils/
+    └── env.js

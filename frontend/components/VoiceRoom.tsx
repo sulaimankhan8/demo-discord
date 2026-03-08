@@ -197,9 +197,9 @@ export default function VoiceRoom() {
         );
       });
 
-      sendTransport.on("produce", ({ kind, rtpParameters }, callback) => {
-        socket.emit("voice:produce", { kind, rtpParameters }, ({ id }) =>
-          callback({ id })
+      sendTransport.on("produce", ({ kind, rtpParameters }, callback: (arg : {id : string }) => void) => {
+        socket.emit("voice:produce", { kind, rtpParameters },(response :{ id:string }) =>
+          callback({ id : response.id })
         );
       });
 
