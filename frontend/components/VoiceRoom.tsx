@@ -186,7 +186,18 @@ export default function VoiceRoom() {
         socket.emit("voice:createTransport", { type: "send" }, res)
       );
 
-      const sendTransport = device.createSendTransport(sendParams);
+      const sendTransport = device.createSendTransport({
+        ...sendParams,
+      iceServers:[
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+         {
+    urls: "turn:demo-discord.duckdns.org:3478",
+    username: "demo",
+    credential: "strongpassword"
+  }
+        ]
+      });
       sendTransportRef.current = sendTransport;
 
       sendTransport.on("connect", ({ dtlsParameters }, callback) => {
@@ -209,7 +220,18 @@ export default function VoiceRoom() {
         socket.emit("voice:createTransport", { type: "recv" }, res)
       );
 
-      const recvTransport = device.createRecvTransport(recvParams);
+      const recvTransport = device.createRecvTransport({
+        ...recvParams,
+      iceServers:[
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        {
+    urls: "turn:demo-discord.duckdns.org:3478",
+    username: "demo",
+    credential: "strongpassword"
+  }
+        ]
+      });
       recvTransportRef.current = recvTransport;
 
       recvTransport.on("connect", ({ dtlsParameters }, callback) => {
@@ -259,6 +281,7 @@ export default function VoiceRoom() {
 
       localStreamRef.current = stream;
 
+      socket.emit("voice:getProducers");
       /* ---------- PRODUCE AUDIO ---------- */
 
       
@@ -277,7 +300,7 @@ export default function VoiceRoom() {
 }
 
       /* ---------- PRODUCE VIDEO ---------- */
-
+   
       const videoTrack = stream.getVideoTracks()[0];
 
       if (videoTrack && device.canProduce("video")) {
@@ -291,7 +314,7 @@ export default function VoiceRoom() {
         });
       }
 
-      socket.emit("voice:getProducers");
+      
 
       setPeers([
         {

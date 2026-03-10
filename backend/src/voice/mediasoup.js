@@ -47,14 +47,13 @@ async function createWorker(index) {
 
 export async function initMediasoup() {
   for (let i = 0; i < numCores; i++) {
-    setTimeout(async () => {
+    
     const worker = await createWorker(i);
 
     workers.push({
       worker,
       pid: worker.pid
     });
-},2000)
   }
 
   console.log(`🔥 Created ${workers.length} mediasoup workers`);

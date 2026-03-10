@@ -313,7 +313,7 @@ export function initVoiceNamespace(io) {
                     const consumer = await peer.recvTransport.consume({
                         producerId,
                         rtpCapabilities,
-                        paused: true, // IMPORTANT
+                        paused: false, // IMPORTANT
                     });
 
                     peer.consumers.push(consumer);
