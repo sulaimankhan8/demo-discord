@@ -192,10 +192,15 @@ export default function VoiceRoom() {
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
          {
-    urls: "turn:demo-discord.duckdns.org:3478",
-    username: "demo",
-    credential: "strongpassword"
-  }
+ urls: "turn:demo-discord.duckdns.org:3478?transport=tcp",
+ username: "demo",
+ credential: "strongpassword"
+},
+{
+ urls: "turns:demo-discord.duckdns.org:5349",
+ username: "demo",
+ credential: "strongpassword"
+}
         ]
       });
       sendTransportRef.current = sendTransport;
@@ -226,10 +231,15 @@ export default function VoiceRoom() {
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
         {
-    urls: "turn:demo-discord.duckdns.org:3478",
-    username: "demo",
-    credential: "strongpassword"
-  }
+ urls: "turn:demo-discord.duckdns.org:3478?transport=tcp",
+ username: "demo",
+ credential: "strongpassword"
+},
+{
+ urls: "turns:demo-discord.duckdns.org:5349",
+ username: "demo",
+ credential: "strongpassword"
+}
         ]
       });
       recvTransportRef.current = recvTransport;
@@ -281,7 +291,7 @@ export default function VoiceRoom() {
 
       localStreamRef.current = stream;
 
-      socket.emit("voice:getProducers");
+      
       /* ---------- PRODUCE AUDIO ---------- */
 
       
@@ -315,7 +325,7 @@ export default function VoiceRoom() {
       }
 
       
-
+      socket.emit("voice:getProducers");
       setPeers([
         {
           socketId: socket.id!,
