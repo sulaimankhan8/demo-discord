@@ -370,10 +370,11 @@ export default function VoiceRoom() {
       /* ---------- PRODUCE AUDIO ---------- */
 
       
-      const audioTrack = stream.getAudioTracks()[0];
+      const audioTrack = stream.getAudioTracks().find(t => t.readyState === "live");
 
-      if (audioTrack  && device.canProduce("audio")) {
+if (audioTrack) {
         log("producing audio track", { trackId: audioTrack.id });
+        
         audioProducerRef.current = await sendTransport.produce({
           track: audioTrack,
           codecOptions: {
@@ -388,9 +389,9 @@ export default function VoiceRoom() {
 
       /* ---------- PRODUCE VIDEO ---------- */
    
-      const videoTrack = stream.getVideoTracks()[0];
+      const videoTrack = stream.getVideoTracks().find(t => t.readyState === "live");
 
-      if (videoTrack && device.canProduce("video")) {
+if (videoTrack) {
         log("producing video track", { trackId: videoTrack.id });
         videoProducerRef.current = await sendTransport.produce({
           track: videoTrack,
