@@ -17,6 +17,10 @@ type PeerVideo = {
 };
 
 export default function VoiceRoom() {
+  const LOG_PREFIX = "[VoiceRoom]";
+  const log = (...args: any[]) => console.log(LOG_PREFIX, ...args);
+  const info = (...args: any[]) => console.info(LOG_PREFIX, ...args);
+  const warn = (...args: any[]) => console.warn(LOG_PREFIX, ...args);
   const [joined, setJoined] = useState(false);
   const [peers, setPeers] = useState<PeerVideo[]>([]);
   const [muted, setMuted] = useState(false);
@@ -37,12 +41,18 @@ export default function VoiceRoom() {
 
   useEffect(() => {
     const stored = localStorage.getItem("user");
-    if (!stored) router.push("/");
+    if (!stored) {
+      log("no user in localStorage — redirecting to /");
+      router.push("/");
+    } else {
+      log("found user in localStorage");
+    }
   }, []);
 
   /* -------------------------------- LEAVE VOICE -------------------------------- */
 
   const leaveVoice = () => {
+    log("leaveVoice() called");
     audioProducerRef.current?.close();
     videoProducerRef.current?.close();
 
@@ -52,9 +62,11 @@ export default function VoiceRoom() {
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
 
     if (socketRef.current) {
+      log("emitting voice:leaveRoom to server", { socketId: socketRef.current.id });
       socketRef.current.emit("voice:leaveRoom");
       socketRef.current.removeAllListeners();
       socketRef.current.disconnect();
+      log("socket disconnected");
     }
 
     socketRef.current = null;
@@ -75,8 +87,10 @@ export default function VoiceRoom() {
   useEffect(() => {
     const handleVisibility = () => {
       if (document.hidden) {
+        log("document hidden — pausing video producer");
         videoProducerRef.current?.pause();
       } else {
+        log("document visible — resuming video producer");
         videoProducerRef.current?.resume();
       }
     };
@@ -90,6 +104,7 @@ export default function VoiceRoom() {
 
   useEffect(() => {
     return () => {
+      log("component unmount — cleaning up transports and socket");
       socketRef.current?.disconnect();
       sendTransportRef.current?.close();
       recvTransportRef.current?.close();
@@ -100,12 +115,14 @@ export default function VoiceRoom() {
 
   const joinVoice = async () => {
     if (joiningRef.current || joined) return;
+    log("joinVoice() start", { joiningRef: joiningRef.current, joined });
     joiningRef.current = true;
 
     try {
       const user = JSON.parse(localStorage.getItem("user") || "{}");
 
       const socket = getVoiceSocket();
+      log("obtained voice socket (pre-connect)", { socket });
 
       socket.off("voice:existingProducers");
       socket.off("voice:newProducer");
@@ -114,6 +131,7 @@ export default function VoiceRoom() {
       socket.off("voice:producerClosed");
 
       socketRef.current = socket;
+      log("socketRef set", { socketId: socket.id });
 
       const device = new mediasoupClient.Device();
       deviceRef.current = device;
@@ -121,7 +139,9 @@ export default function VoiceRoom() {
       /* ---------- SOCKET LISTENERS ---------- */
 
       socket.on("voice:existingProducers", async (producers) => {
+        log("received voice:existingProducers", { count: producers.length, producers });
         for (const producer of producers) {
+          log("consuming existing producer", producer);
           await consume(
             producer.producerId,
             producer.username,
@@ -131,14 +151,17 @@ export default function VoiceRoom() {
       });
 
       socket.on("voice:newProducer", async ({ producerId, username, socketId }) => {
+        log("voice:newProducer", { producerId, username, socketId });
         await consume(producerId, username, socketId);
       });
 
       socket.on("voice:peerLeft", ({ socketId }) => {
+        log("voice:peerLeft", { socketId });
         setPeers((prev) => prev.filter((p) => p.socketId !== socketId));
       });
 
       socket.on("voice:producerClosed", ({ producerId }) => {
+        log("voice:producerClosed", { producerId });
         setPeers((prev) =>
           prev.filter((peer) => {
             const tracks = peer.stream
@@ -151,7 +174,7 @@ export default function VoiceRoom() {
       });
 
       socket.on("voice:activeSpeaker", ({  socketId }) => {
-          console.log("Active speaker producer:", socketId);
+          log("voice:activeSpeaker", { socketId });
         setActiveSpeaker(socketId);
 
        /*  setTimeout(() => {
@@ -162,11 +185,18 @@ export default function VoiceRoom() {
       /* ---------- CONNECT ---------- */
 
       if (!socket.connected) {
+        log("socket not connected yet — waiting for connect event");
         await new Promise<void>((resolve) => {
-          socket.on("connect", () => resolve());
+          socket.on("connect", () => {
+            log("socket connected", { id: socket.id });
+            resolve();
+          });
         });
+      } else {
+        log("socket already connected", { id: socket.id });
       }
 
+      log("emitting voice:joinRoom", { roomId: ROOM_ID, username: user.username });
       socket.emit("voice:joinRoom", {
         roomId: ROOM_ID,
         username: user.username,
@@ -174,17 +204,23 @@ export default function VoiceRoom() {
 
       /* ---------- LOAD DEVICE ---------- */
 
+      log("requesting RTP capabilities from server");
       const rtpCapabilities = await new Promise<any>((res) =>
         socket.emit("voice:getRtpCapabilities", null, res)
       );
+
+      log("received RTP capabilities", { rtpCapabilities });
 
       await device.load({ routerRtpCapabilities: rtpCapabilities });
 
       /* ---------- SEND TRANSPORT ---------- */
 
+      log("requesting createTransport (send)");
       const sendParams = await new Promise<any>((res) =>
         socket.emit("voice:createTransport", { type: "send" }, res)
       );
+
+      log("receive send transport params", { sendParams });
 
       const sendTransport = device.createSendTransport({
         ...sendParams,
@@ -205,25 +241,37 @@ export default function VoiceRoom() {
       });
       sendTransportRef.current = sendTransport;
 
+      log("created sendTransport", { id: sendTransport.id });
+
       sendTransport.on("connect", ({ dtlsParameters }, callback) => {
+        log("sendTransport connect event", { dtlsParameters });
         socket.emit(
           "voice:connectTransport",
           { type: "send", dtlsParameters },
-          () => callback()
+          () => {
+            log("sent voice:connectTransport (send) ack");
+            callback();
+          }
         );
       });
 
       sendTransport.on("produce", ({ kind, rtpParameters }, callback: (arg : {id : string }) => void) => {
-        socket.emit("voice:produce", { kind, rtpParameters },(response :{ id:string }) =>
-          callback({ id : response.id })
+        log("sendTransport produce event", { kind, rtpParameters });
+        socket.emit("voice:produce", { kind, rtpParameters },(response :{ id:string }) =>{
+          log("voice:produce response", response);
+          callback({ id : response.id });
+        }
         );
       });
 
       /* ---------- RECV TRANSPORT ---------- */
 
+      log("requesting createTransport (recv)");
       const recvParams = await new Promise<any>((res) =>
         socket.emit("voice:createTransport", { type: "recv" }, res)
       );
+
+      log("receive recv transport params", { recvParams });
 
       const recvTransport = device.createRecvTransport({
         ...recvParams,
@@ -244,26 +292,35 @@ export default function VoiceRoom() {
       });
       recvTransportRef.current = recvTransport;
 
+      log("created recvTransport", { id: recvTransport.id });
+
       recvTransport.on("connect", ({ dtlsParameters }, callback) => {
+        log("recvTransport connect event", { dtlsParameters });
         socket.emit(
           "voice:connectTransport",
           { type: "recv", dtlsParameters },
-          () => callback()
+          () => {
+            log("sent voice:connectTransport (recv) ack");
+            
+            callback();
+          }
         );
       });
 
       /* ---------- TRANSPORT STATE ---------- */
 
       sendTransport.on("connectionstatechange", (state) => {
+        log("sendTransport connectionstatechange", state);
         if (state === "failed" || state === "closed") {
-          console.log("Send transport failed");
+          warn("Send transport failed or closed", state);
           leaveVoice();
         }
       });
 
       recvTransport.on("connectionstatechange", (state) => {
+        log("recvTransport connectionstatechange", state);
         if (state === "failed" || state === "closed") {
-          console.log("Recv transport failed");
+          warn("Recv transport failed or closed", state);
           leaveVoice();
         }
       });
@@ -273,6 +330,7 @@ export default function VoiceRoom() {
       let stream: MediaStream;
 
       try {
+        log("requesting getUserMedia");
         stream = await navigator.mediaDevices.getUserMedia({
           audio: {
             noiseSuppression: true,
@@ -284,10 +342,13 @@ export default function VoiceRoom() {
           },
         });
       } catch (err) {
-        console.error("Media permission denied", err);
+        warn("Media permission denied or getUserMedia failed", err);
         alert("Camera or microphone permission denied.");
+        joiningRef.current = false;
         return;
       }
+
+      log("obtained local media stream", { tracks: stream.getTracks().map(t => ({ id: t.id, kind: t.kind })) });
 
       localStreamRef.current = stream;
 
@@ -298,6 +359,7 @@ export default function VoiceRoom() {
       const audioTrack = stream.getAudioTracks()[0];
 
       if (audioTrack  && device.canProduce("audio")) {
+        log("producing audio track", { trackId: audioTrack.id });
         audioProducerRef.current = await sendTransport.produce({
           track: audioTrack,
           codecOptions: {
@@ -305,15 +367,17 @@ export default function VoiceRoom() {
             opusFec: true,
           },
         });
-      }else {
-  console.warn("Audio production not supported by device");
-}
+        log("audio producer created", { id: audioProducerRef.current?.id });
+      } else {
+        warn("Audio production not supported by device or no audio track", { canProduce: device.canProduce("audio"), audioTrack });
+      }
 
       /* ---------- PRODUCE VIDEO ---------- */
    
       const videoTrack = stream.getVideoTracks()[0];
 
       if (videoTrack && device.canProduce("video")) {
+        log("producing video track", { trackId: videoTrack.id });
         videoProducerRef.current = await sendTransport.produce({
           track: videoTrack,
           encodings: [
@@ -322,9 +386,13 @@ export default function VoiceRoom() {
             { maxBitrate: 1200000 },
           ],
         });
+        log("video producer created", { id: videoProducerRef.current?.id });
+      } else {
+        warn("Video production not supported or no video track", { canProduce: device.canProduce("video"), videoTrack });
       }
 
       
+      log("emitting voice:getProducers");
       socket.emit("voice:getProducers");
       setPeers([
         {
@@ -335,9 +403,10 @@ export default function VoiceRoom() {
         },
       ]);
 
+      log("initial peers set (self added)", { socketId: socket.id, username: user.username });
       setJoined(true);
     } catch (err) {
-      console.error("Join voice failed:", err);
+      warn("Join voice failed:", err);
     } finally {
       joiningRef.current = false;
     }
@@ -358,6 +427,7 @@ export default function VoiceRoom() {
 
     if (!device || !recvTransport) return;
 
+    log("requesting consume", { producerId, username, socketId });
     const data: any = await new Promise((res) =>
       socket.emit(
         "voice:consume",
@@ -369,6 +439,8 @@ export default function VoiceRoom() {
       )
     );
 
+    log("consume response", { data });
+
     if (data.error) return;
 
     const consumer = await recvTransport.consume({
@@ -378,10 +450,12 @@ export default function VoiceRoom() {
       rtpParameters: data.rtpParameters,
     });
 
+    log("created consumer", { id: consumer.id, producerId: consumer.producerId, kind: consumer.kind });
     setPeers((prev) => {
       const existing = prev.find((p) => p.socketId === socketId);
 
       if (existing) {
+        log("adding track to existing peer stream", { socketId, trackId: consumer.track.id });
         existing.stream.addTrack(consumer.track);
         return [...prev];
       }
@@ -389,6 +463,7 @@ export default function VoiceRoom() {
       const stream = new MediaStream();
       stream.addTrack(consumer.track);
 
+      log("creating new peer with stream", { socketId, username, trackId: consumer.track.id });
       return [...prev, { socketId, username, stream }];
     });
   };
@@ -489,41 +564,3 @@ export default function VoiceRoom() {
     </div>
   );
 }
-
-/*
-Tab A:
-
-Joins
-
-Produces
-
-Ready
-
-Tab B:
-
-Joins
-
-Produces
-
-Then requests producers
-
-Server now sees Tab A producers
-
-Returns them
-
-B consumes A
-
-Tab C:
-
-Same logic
-
-Requests producers AFTER producing
-
-Sees A + B
-
-Now:
-
-1st → 3
-2nd → 3
-3rd → 3
-*/
