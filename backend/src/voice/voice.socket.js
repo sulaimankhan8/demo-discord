@@ -71,19 +71,21 @@ export function initVoiceNamespace(io) {
           peers: new Map(),
         });
 
-        audioObserver.on("volumes", (volumes) => {
+        let lastSpeaker = null;
 
-          if (!volumes.length) return;
+audioObserver.on("volumes", (volumes) => {
+  if (!volumes.length) return;
 
-          const { producer } = volumes[0];
+  const speaker = volumes[0].producer.appData.socketId;
 
-          console.log(`[VOICE] Active speaker ${producer.appData.socketId}`);
+  if (speaker === lastSpeaker) return;
 
-          voice.to(roomId).emit("voice:activeSpeaker", {
-            socketId: producer.appData.socketId
-          });
+  lastSpeaker = speaker;
 
-        });
+  voice.to(roomId).emit("voice:activeSpeaker", {
+    socketId: speaker
+  });
+});
 
       }
 
@@ -287,11 +289,19 @@ export function initVoiceNamespace(io) {
 
         console.log(`[VOICE] Broadcasting new producer ${producer.id}`);
 
-        socket.to(socket.roomId).emit("voice:newProducer", {
-          producerId: producer.id,
-          kind,
-          socketId: socket.id,
-          username: peer.username,
+        room.peers.forEach((otherPeer, otherSocketId) => {
+
+          if (otherSocketId === socket.id) return;
+
+          if (!otherPeer.recvTransport) return;
+
+          voice.to(otherSocketId).emit("voice:newProducer", {
+            producerId: producer.id,
+            kind,
+            socketId: socket.id,
+            username: peer.username,
+          });
+
         });
 
         producer.on("close", () => {
@@ -432,31 +442,29 @@ export function initVoiceNamespace(io) {
 
     /* ---------------- DISCONNECT ---------------- */
 
-    socket.on("disconnect", () => {
+   socket.on("disconnect", () => {
 
-      log(socket, "DISCONNECT");
+  log(socket, "DISCONNECT");
 
-      const room = rooms.get(socket.roomId);
-      if (!room) return;
+  const room = rooms.get(socket.roomId);
+  if (!room) return;
 
-      room.peers.delete(socket.id);
+  const peer = room.peers.get(socket.id);
+  if (!peer) return;
 
-      if (room.peers.size === 0) {
+  peer.producers.forEach(p => p.close());
+  peer.consumers.forEach(c => c.close());
 
-        console.log(`[VOICE] Closing empty room ${socket.roomId}`);
+  peer.sendTransport?.close();
+  peer.recvTransport?.close();
 
-        room.audioObserver.close();
-        room.router.close();
+  room.peers.delete(socket.id);
 
-        rooms.delete(socket.roomId);
+  socket.to(socket.roomId).emit("voice:peerLeft", {
+    socketId: socket.id,
+  });
 
-      }
-
-      socket.to(socket.roomId).emit("voice:peerLeft", {
-        socketId: socket.id,
-      });
-
-    });
+});
 
   });
 

@@ -21,6 +21,7 @@ export default function VoiceRoom() {
   const log = (...args: any[]) => console.log(LOG_PREFIX, ...args);
   const info = (...args: any[]) => console.info(LOG_PREFIX, ...args);
   const warn = (...args: any[]) => console.warn(LOG_PREFIX, ...args);
+
   const [joined, setJoined] = useState(false);
   const [peers, setPeers] = useState<PeerVideo[]>([]);
   const [muted, setMuted] = useState(false);
@@ -122,7 +123,8 @@ export default function VoiceRoom() {
       const user = JSON.parse(localStorage.getItem("user") || "{}");
 
       const socket = getVoiceSocket();
-      log("obtained voice socket (pre-connect)", { socket });
+      socketRef.current = socket;
+      log("obtained voice socket (pre-connect)",  socket );
 
       socket.off("voice:existingProducers");
       socket.off("voice:newProducer");
@@ -130,12 +132,46 @@ export default function VoiceRoom() {
       socket.off("voice:peerLeft");
       socket.off("voice:producerClosed");
 
-      socketRef.current = socket;
-      log("socketRef set", { socketId: socket.id });
+      
+      log("socketRef set", socket);
 
       const device = new mediasoupClient.Device();
       deviceRef.current = device;
 
+
+      /* ---------- MEDIA FIRST (better ICE timing) ---------- */
+
+      let stream: MediaStream;
+
+      try {
+        log("requesting getUserMedia");
+
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            noiseSuppression: true,
+            echoCancellation: true,
+          },
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+        });
+
+      } catch (err) {
+        warn("Media permission denied or getUserMedia failed", err);
+        alert("Camera or microphone permission denied.");
+        joiningRef.current = false;
+        return;
+      }
+
+      log("obtained local media stream", {
+        tracks: stream.getTracks().map((t) => ({
+          id: t.id,
+          kind: t.kind,
+        })),
+      });
+
+      localStreamRef.current = stream;
       /* ---------- SOCKET LISTENERS ---------- */
 
       socket.on("voice:existingProducers", async (producers) => {
@@ -212,6 +248,11 @@ export default function VoiceRoom() {
       log("received RTP capabilities", { rtpCapabilities });
 
       await device.load({ routerRtpCapabilities: rtpCapabilities });
+
+       log("device.canProduce", {
+        audio: device.canProduce("audio"),
+        video: device.canProduce("video"),
+      });
 
       /* ---------- SEND TRANSPORT ---------- */
 
@@ -325,33 +366,6 @@ export default function VoiceRoom() {
         }
       });
 
-      /* ---------- GET MEDIA ---------- */
-
-      let stream: MediaStream;
-
-      try {
-        log("requesting getUserMedia");
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            noiseSuppression: true,
-            echoCancellation: true,
-          },
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        });
-      } catch (err) {
-        warn("Media permission denied or getUserMedia failed", err);
-        alert("Camera or microphone permission denied.");
-        joiningRef.current = false;
-        return;
-      }
-
-      log("obtained local media stream", { tracks: stream.getTracks().map(t => ({ id: t.id, kind: t.kind })) });
-
-      localStreamRef.current = stream;
-
       
       /* ---------- PRODUCE AUDIO ---------- */
 
@@ -451,19 +465,28 @@ export default function VoiceRoom() {
     });
 
     log("created consumer", { id: consumer.id, producerId: consumer.producerId, kind: consumer.kind });
+
     setPeers((prev) => {
       const existing = prev.find((p) => p.socketId === socketId);
 
-      if (existing) {
-        log("adding track to existing peer stream", { socketId, trackId: consumer.track.id });
-        existing.stream.addTrack(consumer.track);
-        return [...prev];
-      }
+    if (existing) {
 
-      const stream = new MediaStream();
-      stream.addTrack(consumer.track);
+    const newStream = new MediaStream([
+      ...existing.stream.getTracks(),
+      consumer.track
+    ]);
 
+    return prev.map((p) =>
+      p.socketId === socketId
+        ? { ...p, stream: newStream }
+        : p
+    );
+
+  }
+
+  const stream = new MediaStream([consumer.track]);
       log("creating new peer with stream", { socketId, username, trackId: consumer.track.id });
+      
       return [...prev, { socketId, username, stream }];
     });
   };
