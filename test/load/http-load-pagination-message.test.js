@@ -6,7 +6,7 @@ export const options = {
   duration: "2m",
 };
 
-const BASE_URL = "https://demo-discord.onrender.com";
+const BASE_URL = "https://demo-discord.duckdns.org";
 
 export default function () {
   let before = null;

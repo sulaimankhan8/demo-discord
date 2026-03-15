@@ -22,7 +22,7 @@ export const options = {
   },
 };
 
-const BASE_URL = "https://demo-discord.onrender.com";
+const BASE_URL = "https://demo-discord.duckdns.org";
 
 export default function () {
   const user = `user_${__VU}`;

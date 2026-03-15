@@ -14,7 +14,8 @@ export const options = {
   },
 };
 
-const BASE_URL = "http://43.204.147.168:4000";
+const BASE_URL = "https://demo-discord.duckdns.org";
+//const BASE_URL = "http://43.204.147.168:4000";
 
 export default function () {
   const username = `user_${__VU}_${__ITER}`;

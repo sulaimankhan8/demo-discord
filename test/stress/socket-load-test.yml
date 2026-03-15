@@ -1,5 +1,5 @@
 config:
-  target: "https://demo-discord.onrender.com"
+  target: "http://43.204.147.168:3000"
   engine: socketio
 
   socketio:
