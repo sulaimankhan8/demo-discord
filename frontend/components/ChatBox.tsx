@@ -178,7 +178,7 @@ export default function ChatBox() {
     socket.on("new-message-batch", (batch) => {
   setMessages(prev => {
     const existing = new Set(prev.map(m => m.snowflake));
-    const newMessages = batch.filter(m => !existing.has(m.snowflake));
+    const newMessages = batch.filter((m:Message) => !existing.has(m.snowflake));
     return [...prev, ...newMessages];
   });
 });
