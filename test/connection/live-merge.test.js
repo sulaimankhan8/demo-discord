@@ -5,7 +5,7 @@ import fetch from "node-fetch";
 
 /* ---------------- CONFIG ---------------- */
 
-const BASE_URL = "https://demo-discord.onrender.com";
+const BASE_URL = "hhttps://demo-discord.duckdns.org";
 const SOCKET_URL = BASE_URL;
 
 const USER = {

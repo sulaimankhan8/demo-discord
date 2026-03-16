@@ -1,5 +1,5 @@
 config:
-  target: "http://43.204.147.168:3000"
+  target: "http://localhost:4000"
   engine: socketio
 
   socketio:

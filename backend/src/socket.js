@@ -9,12 +9,14 @@ import {
   messageReactions,
   messageReactionCounts,
 } from "./db/schema.js";
+import { type } from "os";
 
 /* ---------------- CONFIG ---------------- */
 
 let BATCH_SIZE = 200;
 const FLUSH_INTERVAL = 100;
 const MAX_BUFFER = 7000;
+const MAX_OUTBOUND_BATCH = 500;
 const MAX_CONCURRENT_FLUSHES = 2; // allow 1-2 concurrent DB flushes
 const PRESSURE_FLUSH_AGE = 150; // ms, flush if oldest message exceeds this
 //const PRESSURE_FLUSH_SIZE = 500; // bytes, flush if WAL size exceeds this
@@ -30,6 +32,14 @@ let lastFlush = Date.now();
 let oldestMessageTime = Date.now();
 let io;
 
+/* --------------Scocket Tracking -------------- */
+
+const globalScokets = new Set();
+
+/* ---------------- outbond brodcast queue ---------------- */
+const outboundQueue = [];
+const OUTBOUND_FLUSH_INTERVAL = 15; // ms
+
 /* ---------------- 🔥 NEW: RECENT MESSAGE CACHE ---------------- */
 // Keeps ONLY last 100 messages in memory (constant memory)
 export const recentMessages = [];
@@ -42,12 +52,31 @@ function pushRecent(message) {
   }
 }
 
-/* ---------------- SOCKET INIT ---------------- */
+/* ---------------- snowflake Generation---------------- */
 const snowflakeGn = new Snowflake({
   datacenterId: 1,              // region / DC
   workerId: Number(process.env.WORKER_ID || 0),
 });
 
+/* ---------------- Broadcast Flush ---------------- */
+
+function broadcastBatch(batch) {
+
+  if(globalScokets.size === 0) return  ;
+
+  for( const socket of globalScokets) {
+    socket.emit("new-message-batch", batch);
+  }
+}
+
+setInterval(() => {
+  if(outboundQueue.length ===  0) return  ;
+
+  const batch = outboundQueue.splice(0, MAX_OUTBOUND_BATCH);
+  broadcastBatch(batch);
+}, OUTBOUND_FLUSH_INTERVAL);
+
+/* ---------------- SOCKET INIT ---------------- */
 export function initSocket(server) {
   io = new Server(server, {
     cors: { origin: "*" },
@@ -62,9 +91,11 @@ export function initSocket(server) {
   io.on("connection", (socket) => {
     /* realtime */
     socket.join("global-chat");
+    globalScokets.add(socket);
 
+    if (process.env.NODE_ENV !== "production") {
     console.log("[SOCKET CONNECTED]", socket.id);
-
+    }
     /* ---------- INITIAL PRESENCE PUSH ---------- */
     socket.emit("presence:update", {
       users: Array.from(presence.values()),
@@ -90,7 +121,11 @@ export function initSocket(server) {
     });
 
     /* ---------- DISCONNECT ---------- */
+
     socket.on("disconnect", () => {
+
+      globalScokets.delete(socket);
+
       if (socket.userId) {
         presence.delete(socket.userId);
 
@@ -100,9 +135,10 @@ export function initSocket(server) {
           status: "offline",
         });
       }
-
+ if (process.env.NODE_ENV !== "production") {
       console.log("[SOCKET DISCONNECTED]", socket.id);
-    });
+    }
+  });
 
     /* ---------- SEND MESSAGE ---------- */
     socket.on("send-message", ({ userId, username, content }) => {
@@ -124,18 +160,18 @@ export function initSocket(server) {
       };
 
 
-      io.to("global-chat").emit("new-message", {
-        ...message,
-        createdAt: createdAt.toISOString(),
-      });
-
+      
       // 🔥 NEW: push to recent in-memory cache
-      pushRecent({
+      const messagePayload = {
         ...message,
         createdAt: createdAt.toISOString(),
-      });
+      };
 
-      // 🔥 CHANGE: shard buffer by roomId (or userId % N for fairness)
+      outboundQueue.push(messagePayload);
+      pushRecent(messagePayload);
+
+
+      // 🔥 CHANGE: shard buffer by roomId (or userId % N for fairness) ,WAL
       const shardId = "global-chat"; // can extend to userId % N for multi-room
       if (!messageBuffer.has(shardId)) {
         messageBuffer.set(shardId, []);
@@ -162,14 +198,14 @@ export function initSocket(server) {
 
     /* ---------- TYPING ---------- */
     socket.on("typing:start", () => {
-      socket.to("global-chat").emit("typing:start", {
+      socket.to("global-chat").volatile.emit("typing:start", {
         userId: socket.userId,
         username: socket.username,
       });
     });
 
     socket.on("typing:stop", () => {
-      socket.to("global-chat").emit("typing:stop", socket.userId);
+      socket.to("global-chat").volatile.emit("typing:stop", socket.userId);
     });
 
     /* ---------- REACTIONS (FINAL) ---------- */
@@ -294,6 +330,7 @@ if (!hasData) return;
         const ackMap = new Map(); // socketId → snowflakes[]
 
         const msgMap = new Map();
+
         for (const m of batch) {
           msgMap.set(m.snowflake, m);
         }

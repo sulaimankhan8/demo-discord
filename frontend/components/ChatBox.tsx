@@ -37,7 +37,8 @@ export default function ChatBox() {
   const [onlineUsers, setOnlineUsers] = useState<UserPresence[]>([]);
   const [input, setInput] = useState("");
   const [user, setUser] = useState<any>(null);
-  const [typingUser, setTypingUser] = useState<string | null>(null);
+  const [typingUsers, setTypingUsers] = useState<Map<string, string> >(new Map());
+  const [inputFocused, setInputFocused] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
 
   
@@ -174,6 +175,14 @@ export default function ChatBox() {
       });
     });
 
+    socket.on("new-message-batch", (batch) => {
+  setMessages(prev => {
+    const existing = new Set(prev.map(m => m.snowflake));
+    const newMessages = batch.filter(m => !existing.has(m.snowflake));
+    return [...prev, ...newMessages];
+  });
+});
+
     // batch ACK
 socket.on("message:ack:batch", ({ snowflakes }) => {
   setMessages((prev) =>
@@ -221,13 +230,27 @@ socket.on("message:ack", ({ snowflake }) => {
   socket.off("new-message");
   socket.off("message:ack");
   socket.off("message:ack:batch");
+  socket.off("new-message-batch");
 };
   }, []);
 
   /* ---------- typing ---------- */
   useEffect(() => {
-    socket.on("typing:start", ({ username }) => setTypingUser(username));
-    socket.on("typing:stop", () => setTypingUser(null));
+    socket.on("typing:start", ({ userId,username }) =>{
+      setTypingUsers((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(userId, username);
+        return newMap;
+      })
+    });
+
+    socket.on("typing:stop", (userId) => {
+      setTypingUsers((prev) => {
+        const newMap = new Map(prev);
+        newMap.delete(userId);
+        return newMap;
+      });
+    });
 
     return () => {
       socket.off("typing:start");
@@ -255,14 +278,24 @@ socket.on("message:ack", ({ snowflake }) => {
     }, 1200);
   }; */
 
-  const handleTyping = () => {
-  if (!socket.connected) return;
+ const lastTypingSent = useRef(0);
 
-  socket.emit("typing:start");
+const handleTyping = () => {
+  if (!socket.connected) return;
+  if (!inputFocused) return;
+
+  const now = Date.now();
+
+  if (now - lastTypingSent.current > 4000) {
+    socket.emit("typing:start");
+    lastTypingSent.current = now;
+  }
+
   clearTimeout(typingTimer.current);
+
   typingTimer.current = setTimeout(() => {
     socket.emit("typing:stop");
-  }, 1200);
+  }, 1500);
 };
 
 
@@ -497,25 +530,35 @@ socket.on("message:ack", ({ snowflake }) => {
             </div>
           ))}
           
-          {typingUser && (
-            <div className="flex justify-start">
-              <div className="flex items-end">
-                <div 
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium mr-2 flex-shrink-0"
-                  style={{ backgroundColor: getAvatarColor(typingUser) }}
-                >
-                  {typingUser.charAt(0).toUpperCase()}
-                </div>
-                <div className="bg-gray-800 px-4 py-2 rounded-lg rounded-bl-sm">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {typingUsers.size > 0 && (() => {
+  const users = Array.from(typingUsers.values());
+  const visible = users.slice(0, 3);
+  const extra = users.length - visible.length;
+
+  return (
+    <div className="flex justify-start">
+      <div className="flex items-end">
+        <div className="bg-gray-800 px-4 py-2 rounded-lg rounded-bl-sm flex items-center gap-2">
+          
+          {/* animated dots */}
+          <div className="flex space-x-1">
+            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+          </div>
+
+          {/* typing text */}
+          <span className="text-sm text-gray-300">
+            {visible.join(", ")}
+            {extra > 0 && ` + ${extra}`}
+            {" typing..."}
+          </span>
+
+        </div>
+      </div>
+    </div>
+  );
+})()}
           
           <div ref={bottomRef} />
         </div>
@@ -526,6 +569,13 @@ socket.on("message:ack", ({ snowflake }) => {
             <div className="flex-1 relative">
               <input
                 value={input}
+                onFocus={()=>{
+                  setInputFocused(true);
+                }}
+                onBlur={()=>{
+                  setInputFocused(false);
+                  socket.emit("typing:stop");
+                }}
                 onChange={(e) => {
                   setInput(e.target.value);
                   handleTyping();
