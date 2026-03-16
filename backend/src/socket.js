@@ -9,14 +9,13 @@ import {
   messageReactions,
   messageReactionCounts,
 } from "./db/schema.js";
-import { type } from "os";
 
 /* ---------------- CONFIG ---------------- */
 
-let BATCH_SIZE = 200;
-const FLUSH_INTERVAL = 100;
+let BATCH_SIZE = 300;
+const FLUSH_INTERVAL = 200;
 const MAX_BUFFER = 7000;
-const MAX_OUTBOUND_BATCH = 500;
+const MAX_OUTBOUND_BATCH = 1000;
 const MAX_CONCURRENT_FLUSHES = 2; // allow 1-2 concurrent DB flushes
 const PRESSURE_FLUSH_AGE = 150; // ms, flush if oldest message exceeds this
 //const PRESSURE_FLUSH_SIZE = 500; // bytes, flush if WAL size exceeds this
@@ -32,13 +31,11 @@ let lastFlush = Date.now();
 let oldestMessageTime = Date.now();
 let io;
 
-/* --------------Scocket Tracking -------------- */
 
-const globalScokets = new Set();
 
 /* ---------------- outbond brodcast queue ---------------- */
 const outboundQueue = [];
-const OUTBOUND_FLUSH_INTERVAL = 15; // ms
+const OUTBOUND_FLUSH_INTERVAL = 5; // ms
 
 /* ---------------- 🔥 NEW: RECENT MESSAGE CACHE ---------------- */
 // Keeps ONLY last 100 messages in memory (constant memory)
@@ -62,11 +59,10 @@ const snowflakeGn = new Snowflake({
 
 function broadcastBatch(batch) {
 
-  if(globalScokets.size === 0) return  ;
+  if (batch.length === 0) return;
 
-  for( const socket of globalScokets) {
-    socket.emit("new-message-batch", batch);
-  }
+  io.to("global-chat").emit("new-message-batch", batch);
+
 }
 
 setInterval(() => {
@@ -91,7 +87,6 @@ export function initSocket(server) {
   io.on("connection", (socket) => {
     /* realtime */
     socket.join("global-chat");
-    globalScokets.add(socket);
 
     if (process.env.NODE_ENV !== "production") {
     console.log("[SOCKET CONNECTED]", socket.id);
@@ -124,7 +119,6 @@ export function initSocket(server) {
 
     socket.on("disconnect", () => {
 
-      globalScokets.delete(socket);
 
       if (socket.userId) {
         presence.delete(socket.userId);
