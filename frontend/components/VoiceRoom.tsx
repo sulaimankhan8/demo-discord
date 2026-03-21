@@ -16,6 +16,12 @@ type PeerVideo = {
   isSelf?: boolean;
 };
 
+type ProducerInfo = {
+  producerId: string;
+  socketId: string;
+  username: string;
+};
+
 export default function VoiceRoom() {
   const LOG_PREFIX = "[VoiceRoom]";
   const log = (...args: any[]) => console.log(LOG_PREFIX, ...args);
@@ -69,13 +75,6 @@ const totalPages = Math.ceil(totalUsers / PAGE_SIZE);
 
   const leaveVoice = () => {
     log("leaveVoice() called");
-    audioProducerRef.current?.close();
-    videoProducerRef.current?.close();
-
-    sendTransportRef.current?.close();
-    recvTransportRef.current?.close();
-
-    localStreamRef.current?.getTracks().forEach((t) => t.stop());
 
     if (socketRef.current) {
       log("emitting voice:leaveRoom to server", { socketId: socketRef.current.id });
@@ -84,6 +83,16 @@ const totalPages = Math.ceil(totalUsers / PAGE_SIZE);
       socketRef.current.disconnect();
       log("socket disconnected");
     }
+
+    audioProducerRef.current?.close();
+    videoProducerRef.current?.close();
+
+    sendTransportRef.current?.close();
+    recvTransportRef.current?.close();
+
+    localStreamRef.current?.getTracks().forEach((t) => t.stop());
+
+    
 
     socketRef.current = null;
     deviceRef.current = null;
@@ -127,7 +136,8 @@ const totalPages = Math.ceil(totalUsers / PAGE_SIZE);
       const user = allUsers.find(p => p.socketId === userId);
       if (!user) continue;
 
-      for (const producer of Object.values(user.producers)) {
+      const producers = Object.values(user.producers) as ProducerInfo[];
+      for (const producer of producers) {
         if (consumedSetRef.current.has(producer.producerId)) continue;
 
         consumedSetRef.current.add(producer.producerId);
