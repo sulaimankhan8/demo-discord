@@ -20,6 +20,7 @@ type ProducerInfo = {
   producerId: string;
   socketId: string;
   username: string;
+  kind: "audio" | "video";
 };
 
 export default function VoiceRoom() {
@@ -136,7 +137,7 @@ const totalPages = Math.ceil(totalUsers / PAGE_SIZE);
       const user = allUsers.find(p => p.socketId === userId);
       if (!user) continue;
 
-      const producers = Object.values(user.producers) as ProducerInfo[];
+      const producers: ProducerInfo[] = Object.values(user.producers);
       for (const producer of producers) {
         if (consumedSetRef.current.has(producer.producerId)) continue;
 
@@ -269,23 +270,30 @@ const totalPages = Math.ceil(totalUsers / PAGE_SIZE);
       localStreamRef.current = stream;
       /* ---------- SOCKET LISTENERS ---------- */
 
-      socket.on("voice:existingProducers", (producers) => {
-        const map = new Map();
+      socket.on("voice:existingProducers", (producers: ProducerInfo[]) => {
+        const map = new Map<
+  string,
+  {
+    socketId: string;
+    username: string;
+    producers: Record<string, ProducerInfo>;
+  }
+>();
 
         producers.forEach((p) => {
-          if (!map.has(p.socketId)) {
-            map.set(p.socketId, {
-              socketId: p.socketId,
-              username: p.username,
-              producers: {},
-            });
-          }
-
-          map.get(p.socketId).producers[p.kind] = p;
-        });
-
-        setAllUsers([...map.values()]);
+    if (!map.has(p.socketId)) {
+      map.set(p.socketId, {
+        socketId: p.socketId,
+        username: p.username,
+        producers: {},
       });
+    }
+
+    map.get(p.socketId)!.producers[p.kind] = p;
+  });
+
+  setAllUsers([...map.values()]);
+});
 
 
       socket.on("voice:newProducer", (producer) => {
