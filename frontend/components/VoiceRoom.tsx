@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import * as mediasoupClient from "mediasoup-client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -22,11 +22,26 @@ export default function VoiceRoom() {
   const info = (...args: any[]) => console.info(LOG_PREFIX, ...args);
   const warn = (...args: any[]) => console.warn(LOG_PREFIX, ...args);
 
+
   const [joined, setJoined] = useState(false);
   const [peers, setPeers] = useState<PeerVideo[]>([]);
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
   const [activeSpeaker, setActiveSpeaker] = useState<string | null>(null);
+
+  const [page, setPage] = useState(0);
+
+  
+
+  
+
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [visibleUsers, setVisibleUsers] = useState<string[]>([]);
+  const [mode, setMode] = useState<"focus" | "gallery">("focus");
+  const PAGE_SIZE = mode === "focus" ? 6 : 24;
+  const totalUsers = allUsers.length + 1; // +1 for self
+const totalPages = Math.ceil(totalUsers / PAGE_SIZE);
+  const consumedSetRef = useRef(new Set());
 
   const socketRef = useRef<any>(null);
   const deviceRef = useRef<any>(null);
@@ -77,6 +92,8 @@ export default function VoiceRoom() {
     audioProducerRef.current = null;
     videoProducerRef.current = null;
 
+    consumedSetRef.current.clear();
+
     setMuted(false);
     setCameraOff(false);
     setPeers([]);
@@ -101,6 +118,73 @@ export default function VoiceRoom() {
       document.removeEventListener("visibilitychange", handleVisibility);
   }, []);
 
+  /*-----------visibility-----------*/
+  useEffect(() => {
+  if (!visibleUsers.length) return;
+
+  const run = async () => {
+    for (const userId of visibleUsers) {
+      const user = allUsers.find(p => p.socketId === userId);
+      if (!user) continue;
+
+      for (const producer of Object.values(user.producers)) {
+        if (consumedSetRef.current.has(producer.producerId)) continue;
+
+        consumedSetRef.current.add(producer.producerId);
+
+        await consume(producer.producerId, user.username, user.socketId);
+      }
+    }
+  };
+
+  run();
+}, [visibleUsers, allUsers]);
+
+  useEffect(() => {
+    if (!socketRef.current) return;
+
+    socketRef.current.emit("voice:updateVisible", {
+      visibleUsers,
+      mode
+    });
+
+  }, [visibleUsers, mode]);
+
+
+  /*--------focus--------*/
+
+  useEffect(() => {
+    if (!activeSpeaker || !allUsers.length) return;
+
+    if (mode === "focus") {
+      const ordered = [
+        activeSpeaker,
+        ...allUsers
+          .map(u => u.socketId)
+          .filter(id => id !== activeSpeaker)
+      ];
+      setVisibleUsers(ordered.slice(0, 6));
+    }
+
+  }, [activeSpeaker, allUsers, mode]);
+
+
+  /*----------gallery----------*/
+  useEffect(() => {
+    if (mode === "gallery") {
+      const users = allUsers.map(u => u.socketId).slice(0, 24);
+      setVisibleUsers(users);
+    }
+  }, [mode, allUsers]);
+
+  function bringToFocus(userId: string) {
+    setMode("focus");
+
+    setVisibleUsers(prev => {
+      const newList = [userId, ...prev.filter(u => u !== userId)];
+      return newList.slice(0, 6);
+    });
+  }
   /* -------------------------------- CLEANUP -------------------------------- */
 
   useEffect(() => {
@@ -124,7 +208,7 @@ export default function VoiceRoom() {
 
       const socket = getVoiceSocket();
       socketRef.current = socket;
-      log("obtained voice socket (pre-connect)",  socket );
+      log("obtained voice socket (pre-connect)", socket);
 
       socket.off("voice:existingProducers");
       socket.off("voice:newProducer");
@@ -132,7 +216,7 @@ export default function VoiceRoom() {
       socket.off("voice:peerLeft");
       socket.off("voice:producerClosed");
 
-      
+
       log("socketRef set", socket);
 
       const device = new mediasoupClient.Device();
@@ -154,6 +238,7 @@ export default function VoiceRoom() {
           video: {
             width: { ideal: 1280 },
             height: { ideal: 720 },
+            frameRate: { ideal: 30, max: 30 }
           },
         });
 
@@ -174,48 +259,74 @@ export default function VoiceRoom() {
       localStreamRef.current = stream;
       /* ---------- SOCKET LISTENERS ---------- */
 
-      socket.on("voice:existingProducers", async (producers) => {
-        log("received voice:existingProducers", { count: producers.length, producers });
-        for (const producer of producers) {
-          log("consuming existing producer", producer);
-          await consume(
-            producer.producerId,
-            producer.username,
-            producer.socketId
-          );
-        }
+      socket.on("voice:existingProducers", (producers) => {
+        const map = new Map();
+
+        producers.forEach((p) => {
+          if (!map.has(p.socketId)) {
+            map.set(p.socketId, {
+              socketId: p.socketId,
+              username: p.username,
+              producers: {},
+            });
+          }
+
+          map.get(p.socketId).producers[p.kind] = p;
+        });
+
+        setAllUsers([...map.values()]);
       });
 
-      socket.on("voice:newProducer", async ({ producerId, username, socketId }) => {
-        log("voice:newProducer", { producerId, username, socketId });
-        await consume(producerId, username, socketId);
+
+      socket.on("voice:newProducer", (producer) => {
+        setAllUsers(prev => {
+          const existing = prev.find(p => p.socketId === producer.socketId);
+
+          if (existing) {
+            existing.producers[producer.kind] = producer;
+            return [...prev];
+          }
+
+          return [
+            ...prev,
+            {
+              socketId: producer.socketId,
+              username: producer.username,
+              producers: { [producer.kind]: producer }
+            }
+          ];
+        });
       });
 
       socket.on("voice:peerLeft", ({ socketId }) => {
         log("voice:peerLeft", { socketId });
         setPeers((prev) => prev.filter((p) => p.socketId !== socketId));
+        setAllUsers((prev) => prev.filter((p) => p.socketId !== socketId));
       });
 
       socket.on("voice:producerClosed", ({ producerId }) => {
-        log("voice:producerClosed", { producerId });
+        consumedSetRef.current.delete(producerId);
+
         setPeers((prev) =>
           prev.filter((peer) => {
             const tracks = peer.stream
               .getTracks()
               .filter((t) => t.id !== producerId);
+
             peer.stream = new MediaStream(tracks);
+
             return peer.stream.getTracks().length > 0;
           })
         );
       });
 
-      socket.on("voice:activeSpeaker", ({  socketId }) => {
-          log("voice:activeSpeaker", { socketId });
+      socket.on("voice:activeSpeaker", ({ socketId }) => {
+        log("voice:activeSpeaker", { socketId });
         setActiveSpeaker(socketId);
 
-       /*  setTimeout(() => {
-          setActiveSpeaker(null);
-        }, 1200); */
+        /*  setTimeout(() => {
+           setActiveSpeaker(null);
+         }, 1200); */
       });
 
       /* ---------- CONNECT ---------- */
@@ -249,7 +360,7 @@ export default function VoiceRoom() {
 
       await device.load({ routerRtpCapabilities: rtpCapabilities });
 
-       log("device.canProduce", {
+      log("device.canProduce", {
         audio: device.canProduce("audio"),
         video: device.canProduce("video"),
       });
@@ -265,19 +376,19 @@ export default function VoiceRoom() {
 
       const sendTransport = device.createSendTransport({
         ...sendParams,
-      iceServers:[
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" },
-         {
- urls: "turn:demo-discord.duckdns.org:3478?transport=tcp",
- username: "demo",
- credential: "strongpassword"
-},
-{
- urls: "turns:demo-discord.duckdns.org:5349",
- username: "demo",
- credential: "strongpassword"
-}
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+          {
+            urls: "turn:demo-discord.duckdns.org:3478?transport=tcp",
+            username: "demo",
+            credential: "strongpassword"
+          },
+          {
+            urls: "turns:demo-discord.duckdns.org:5349",
+            username: "demo",
+            credential: "strongpassword"
+          }
         ]
       });
       sendTransportRef.current = sendTransport;
@@ -296,11 +407,11 @@ export default function VoiceRoom() {
         );
       });
 
-      sendTransport.on("produce", ({ kind, rtpParameters }, callback: (arg : {id : string }) => void) => {
+      sendTransport.on("produce", ({ kind, rtpParameters }, callback: (arg: { id: string }) => void) => {
         log("sendTransport produce event", { kind, rtpParameters });
-        socket.emit("voice:produce", { kind, rtpParameters },(response :{ id:string }) =>{
+        socket.emit("voice:produce", { kind, rtpParameters }, (response: { id: string }) => {
           log("voice:produce response", response);
-          callback({ id : response.id });
+          callback({ id: response.id });
         }
         );
       });
@@ -316,19 +427,19 @@ export default function VoiceRoom() {
 
       const recvTransport = device.createRecvTransport({
         ...recvParams,
-      iceServers:[
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" },
-        {
- urls: "turn:demo-discord.duckdns.org:3478?transport=tcp",
- username: "demo",
- credential: "strongpassword"
-},
-{
- urls: "turns:demo-discord.duckdns.org:5349",
- username: "demo",
- credential: "strongpassword"
-}
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+          {
+            urls: "turn:demo-discord.duckdns.org:3478?transport=tcp",
+            username: "demo",
+            credential: "strongpassword"
+          },
+          {
+            urls: "turns:demo-discord.duckdns.org:5349",
+            username: "demo",
+            credential: "strongpassword"
+          }
         ]
       });
       recvTransportRef.current = recvTransport;
@@ -342,7 +453,7 @@ export default function VoiceRoom() {
           { type: "recv", dtlsParameters },
           () => {
             log("sent voice:connectTransport (recv) ack");
-            
+
             callback();
           }
         );
@@ -366,15 +477,15 @@ export default function VoiceRoom() {
         }
       });
 
-      
+
       /* ---------- PRODUCE AUDIO ---------- */
 
-      
+
       const audioTrack = stream.getAudioTracks().find(t => t.readyState === "live");
 
-if (audioTrack) {
+      if (audioTrack) {
         log("producing audio track", { trackId: audioTrack.id });
-        
+
         audioProducerRef.current = await sendTransport.produce({
           track: audioTrack,
           codecOptions: {
@@ -388,25 +499,23 @@ if (audioTrack) {
       }
 
       /* ---------- PRODUCE VIDEO ---------- */
-   
+
       const videoTrack = stream.getVideoTracks().find(t => t.readyState === "live");
 
-if (videoTrack) {
+      if (videoTrack) {
         log("producing video track", { trackId: videoTrack.id });
         videoProducerRef.current = await sendTransport.produce({
           track: videoTrack,
-          encodings: [
-            { maxBitrate: 150000 },
-            { maxBitrate: 500000 },
-            { maxBitrate: 1200000 },
-          ],
+          codecOptions: {
+            videoGoogleMaxBitrate: 1000
+          }
         });
         log("video producer created", { id: videoProducerRef.current?.id });
       } else {
         warn("Video production not supported or no video track", { canProduce: device.canProduce("video"), videoTrack });
       }
 
-      
+
       log("emitting voice:getProducers");
       socket.emit("voice:getProducers");
       setPeers([
@@ -470,39 +579,126 @@ if (videoTrack) {
     setPeers((prev) => {
       const existing = prev.find((p) => p.socketId === socketId);
 
-    if (existing) {
+      if (existing) {
 
-    const newStream = new MediaStream([
-      ...existing.stream.getTracks(),
-      consumer.track
-    ]);
+        const newStream = new MediaStream([
+          ...existing.stream.getTracks(),
+          consumer.track
+        ]);
 
-    return prev.map((p) =>
-      p.socketId === socketId
-        ? { ...p, stream: newStream }
-        : p
-    );
+        return prev.map((p) =>
+          p.socketId === socketId
+            ? { ...p, stream: newStream }
+            : p
+        );
 
-  }
+      }
 
-  const stream = new MediaStream([consumer.track]);
+      const stream = new MediaStream([consumer.track]);
       log("creating new peer with stream", { socketId, username, trackId: consumer.track.id });
-      
+
       return [...prev, { socketId, username, stream }];
     });
   };
+
+  
+  const finalVisibleUsers = useMemo(() => {
+    
+  const orderedUsers = [
+    ...(activeSpeaker ? [activeSpeaker] : []),
+    ...allUsers
+      .map(u => u.socketId)
+      .filter(id => id !== activeSpeaker)
+  ];
+
+  const paginated = orderedUsers.slice(
+    page * PAGE_SIZE,
+    (page + 1) * PAGE_SIZE
+  );
+
+  let result = [...paginated];
+
+  if (activeSpeaker && !result.includes(activeSpeaker)) {
+    result = [
+      activeSpeaker,
+      ...result.slice(0, PAGE_SIZE - 1)
+    ];
+  }
+
+  return result;
+}, [allUsers, activeSpeaker, page, PAGE_SIZE]);
+useEffect(() => {
+  if (page >= totalPages) {
+    setPage(Math.max(0, totalPages - 1));
+  }
+}, [totalPages]);
+
+const lastSentRef = useRef<string>("");
+
+useEffect(() => {
+  if (!socketRef.current) return;
+
+  const payload = JSON.stringify({
+    visibleUsers: finalVisibleUsers,
+    mode
+  });
+
+  if (lastSentRef.current === payload) return;
+
+  lastSentRef.current = payload;
+
+  socketRef.current.emit("voice:updateVisible", {
+    visibleUsers: finalVisibleUsers,
+    mode
+  });
+
+}, [finalVisibleUsers, mode]);
+
+useEffect(() => {
+  setVisibleUsers(finalVisibleUsers);
+}, [finalVisibleUsers]);
+
+useEffect(() => {
+  setPage(0);
+}, [mode]);
+
+  const gridCols =
+    mode === "focus"
+      ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+      : "grid-cols-2 md:grid-cols-4 lg:grid-cols-6";
 
   /* -------------------------------- UI -------------------------------- */
 
   return (
     <div className="h-screen bg-gray-900 text-white flex flex-col">
-      <div className="p-3 bg-gray-800 flex justify-between">
+      <div className="p-3 bg-gray-800 flex justify-between items-center">
         <h2>Global Voice</h2>
+
+        <div className="flex gap-2">
+          <button
+            onClick={() => setMode("focus")}
+            className={`px-3 py-1 rounded ${mode === "focus" ? "bg-green-600" : "bg-gray-600"
+              }`}
+          >
+            Focus
+          </button>
+
+          <button
+            onClick={() => setMode("gallery")}
+            className={`px-3 py-1 rounded ${mode === "gallery" ? "bg-green-600" : "bg-gray-600"
+              }`}
+          >
+            Gallery
+          </button>
+        </div>
+
         <Link href="/chat" className="text-indigo-400 hover:underline">
           Go to Chat
         </Link>
       </div>
-
+      <div className="px-4 py-2 text-sm text-gray-400">
+        Mode: {mode.toUpperCase()} | Visible: {visibleUsers.length}
+      </div>
       {!joined ? (
         <div className="flex items-center justify-center flex-1">
           <button
@@ -514,23 +710,19 @@ if (videoTrack) {
         </div>
       ) : (
         <>
-          <div
-            className="flex-1 grid gap-4 p-4"
-            style={{
-              gridTemplateColumns: `repeat(auto-fit, minmax(250px, 1fr))`,
-            }}
-          >
-            
+          <div className={`flex-1 grid gap-4 p-4 ${gridCols}`}>
+
             {peers.map((peer) => (
               <div
                 key={peer.socketId}
-                className={`relative bg-black rounded-lg overflow-hidden ${activeSpeaker === peer.socketId
-                    ? "ring-4 ring-green-400" 
-                    : "ring-5 ring-red-700" 
+                onClick={() => bringToFocus(peer.socketId)}
+                className={`relative bg-black rounded-lg overflow-hidden cursor-pointer ${activeSpeaker === peer.socketId
+                    ? "ring-4 ring-green-400"
+                    : "ring-2 ring-gray-700"
                   }`}
 
               >
-               
+
                 <video
                   autoPlay
                   playsInline
@@ -539,7 +731,13 @@ if (videoTrack) {
                     if (!video) return;
 
                     if (video.srcObject !== peer.stream) {
+                      video.style.opacity = "0";
+
                       video.srcObject = peer.stream;
+
+                      video.onloadeddata = () => {
+                        video.style.opacity = "1";
+                      };
                     }
                   }}
                   className="w-full h-full object-cover"
@@ -572,11 +770,24 @@ if (videoTrack) {
             </button>
 
             <button
-              onClick={() => {
-                cameraOff
-                  ? videoProducerRef.current?.resume()
-                  : videoProducerRef.current?.pause();
-                setCameraOff(!cameraOff);
+              onClick={async () => {
+                if (!cameraOff) {
+                  videoProducerRef.current?.close();
+                  videoProducerRef.current = null;
+                  setCameraOff(true);
+                } else {
+                  const stream = localStreamRef.current;
+
+                  const videoTrack = stream?.getVideoTracks()[0];
+
+                  if (videoTrack && sendTransportRef.current) {
+                    videoProducerRef.current = await sendTransportRef.current.produce({
+                      track: videoTrack,
+                    });
+                  }
+
+                  setCameraOff(false);
+                }
               }}
               className="px-4 py-2 bg-blue-600 rounded"
             >
@@ -584,7 +795,33 @@ if (videoTrack) {
             </button>
           </div>
         </>
+
       )}
+
+{totalPages > 1 && (
+  <div className="flex gap-2 justify-center">
+    <button
+      onClick={() => setPage(p => Math.max(p - 1, 0))}
+      disabled={page === 0}
+      className="px-3 py-1 bg-gray-700 rounded disabled:opacity-40"
+    >
+      Prev
+    </button>
+
+    <span className="px-2">
+      Page {page + 1} / {totalPages}
+    </span>
+
+    <button
+      onClick={() => setPage(p => Math.min(p + 1, totalPages - 1))}
+      disabled={page === totalPages - 1}
+      className="px-3 py-1 bg-gray-700 rounded disabled:opacity-40"
+    >
+      Next
+    </button>
+  </div>
+)}
     </div>
+
   );
 }

@@ -24,9 +24,10 @@ config:
   processor: "./user-generator.js"
 
 scenarios:
-  - name: mixed-chat-traffic
+  - name: realistic-chat-traffic
     engine: socketio
     flow:
+
       - function: pickUser
 
       - emit:
@@ -37,16 +38,18 @@ scenarios:
 
       - loop:
           - emit: { channel: typing:start }
-          - think: 0.3
+          - think: 0.1
           - emit: { channel: typing:stop }
-          - think: 0.5
+
           - emit:
               channel: send-message
               data:
                 userId: "{{ userId }}"
                 username: "{{ username }}"
                 content: "hello"
-          - think: 1
-        count: 5
+
+          - think: 0.3
+
+        count: 10
 
       - think: 5

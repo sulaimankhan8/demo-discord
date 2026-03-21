@@ -1,3 +1,4 @@
+
 import { getNextWorker } from "./mediasoup.js";
 
 const rooms = new Map();
@@ -12,13 +13,32 @@ roomId -> {
     sendTransport,
     recvTransport,
     producers: [],
-    consumers: []
+    consumers: [],
+    visibleUsers: Set(socketId),
+    mode: "focus" | "gallery",
+    maxBitrate
   })
 }
 */
 
+const MAX_VIDEO_STREAMS = {
+  focus: 6,
+  gallery: 24,
+};
+
+
 function log(socket, event, data = "") {
   console.log(`[VOICE] [${event}] [socket:${socket.id}]`, data || "");
+}
+
+
+function safeUpdate(room) {
+  if (room.updateTimeout) return;
+
+  room.updateTimeout = setTimeout(() => {
+    updateAllConsumers(room);
+    room.updateTimeout = null;
+  }, 50);
 }
 
 export function initVoiceNamespace(io) {
@@ -51,8 +71,11 @@ export function initVoiceNamespace(io) {
             },
             {
               kind: "video",
-              mimeType: "video/VP8",
+              mimeType: "video/VP9",
               clockRate: 90000,
+              parameters: {
+                "profile-id": 2,
+              }
             },
           ],
         });
@@ -61,31 +84,40 @@ export function initVoiceNamespace(io) {
 
         const audioObserver = await router.createAudioLevelObserver({
           maxEntries: 1,
-          threshold: -80,
-          interval: 800,
+          threshold: -60,
+          interval: 500,
         });
 
         rooms.set(roomId, {
           router,
           audioObserver,
           peers: new Map(),
+          aS: null,
+          updateTimeout: null
         });
 
-        let lastSpeaker = null;
 
-audioObserver.on("volumes", (volumes) => {
-  if (!volumes.length) return;
+        audioObserver.on("volumes", (volumes) => {
+          if (!volumes.length) return;
 
-  const speaker = volumes[0].producer.appData.socketId;
+          const speaker = volumes[0].producer.appData.socketId;
 
-  if (speaker === lastSpeaker) return;
+          const room = rooms.get(roomId);
+          if (!room) return;
 
-  lastSpeaker = speaker;
+          if (room.aS === speaker) return;
 
-  voice.to(roomId).emit("voice:activeSpeaker", {
-    socketId: speaker
-  });
-});
+          room.aS = speaker;
+
+          voice.to(roomId).emit("voice:activeSpeaker", {
+            socketId: speaker
+          });
+
+          safeUpdate(room);
+        });
+
+
+
 
       }
 
@@ -95,11 +127,16 @@ audioObserver.on("volumes", (volumes) => {
       socket.roomId = roomId;
 
       room.peers.set(socket.id, {
+        socketId: socket.id,
         username,
         sendTransport: null,
         recvTransport: null,
         producers: [],
         consumers: [],
+        consumerMap: new Map(),
+        visibleUsers: new Set(),
+        mode: "focus",
+        maxBitrate: 2000000,
       });
 
       console.log(`[VOICE] Peer joined room ${roomId} totalPeers=${room.peers.size}`);
@@ -107,6 +144,8 @@ audioObserver.on("volumes", (volumes) => {
       socket.emit("voice:joined");
 
     });
+
+
 
     /* ---------------- GET PRODUCERS ---------------- */
 
@@ -138,6 +177,20 @@ audioObserver.on("volumes", (volumes) => {
 
       socket.emit("voice:existingProducers", producers);
 
+    });
+
+    /* ----------------  VISIBLE USERS ---------------- */
+    socket.on("voice:updateVisible", ({ visibleUsers, mode }) => {
+      const room = rooms.get(socket.roomId);
+      if (!room) return;
+
+      const peer = room.peers.get(socket.id);
+      if (!peer) return;
+
+      peer.visibleUsers = new Set(visibleUsers);
+      peer.mode = mode;
+
+      safeUpdate(room);
     });
 
     /* ---------------- RTP CAPABILITIES ---------------- */
@@ -186,6 +239,8 @@ audioObserver.on("volumes", (volumes) => {
           preferUdp: true,
           initialAvailableOutgoingBitrate: 500000
         });
+
+        transport.setMaxIncomingBitrate(peer.maxBitrate || 2000000);
 
         console.log(`[VOICE] Transport created type=${type} socket=${socket.id}`);
 
@@ -289,6 +344,9 @@ audioObserver.on("volumes", (volumes) => {
 
         console.log(`[VOICE] Broadcasting new producer ${producer.id}`);
 
+        safeUpdate(room);
+
+
         room.peers.forEach((otherPeer, otherSocketId) => {
 
           if (otherSocketId === socket.id) return;
@@ -328,7 +386,7 @@ audioObserver.on("volumes", (volumes) => {
             });
 
           });
-
+          safeUpdate(room);
         });
 
         callback({ id: producer.id });
@@ -368,10 +426,15 @@ audioObserver.on("volumes", (volumes) => {
         const consumer = await peer.recvTransport.consume({
           producerId,
           rtpCapabilities,
-          paused: false,
+          paused: true,// no longer in testing
         });
 
         peer.consumers.push(consumer);
+        peer.consumerMap.set(producerId, consumer)
+
+        safeUpdate(room);
+
+
 
         console.log(`[VOICE] CONSUMER_CREATED ${consumer.id} for producer ${producerId}`);
 
@@ -384,7 +447,8 @@ audioObserver.on("volumes", (volumes) => {
           console.log(`[VOICE] Producer closed for consumer ${consumer.id}`);
 
           consumer.close();
-
+          peer.consumers = peer.consumers.filter(c => c.id !== consumer.id);
+          peer.consumerMap.delete(producerId);
         });
 
         callback({
@@ -422,6 +486,7 @@ audioObserver.on("volumes", (volumes) => {
       if (peer.recvTransport) peer.recvTransport.close();
 
       room.peers.delete(socket.id);
+      safeUpdate(room);
 
       console.log(`[VOICE] Peer left room ${socket.roomId} remaining=${room.peers.size}`);
 
@@ -442,30 +507,111 @@ audioObserver.on("volumes", (volumes) => {
 
     /* ---------------- DISCONNECT ---------------- */
 
-   socket.on("disconnect", () => {
+    socket.on("disconnect", () => {
 
-  log(socket, "DISCONNECT");
+      log(socket, "DISCONNECT");
 
-  const room = rooms.get(socket.roomId);
-  if (!room) return;
+      const room = rooms.get(socket.roomId);
+      if (!room) return;
 
-  const peer = room.peers.get(socket.id);
-  if (!peer) return;
+      const peer = room.peers.get(socket.id);
+      if (!peer) return;
 
-  peer.producers.forEach(p => p.close());
-  peer.consumers.forEach(c => c.close());
+      if (room.aS === socket.id) {
+  room.aS = null;
+}
+      peer.producers.forEach(p => p.close());
+      peer.consumers.forEach(c => c.close());
 
-  peer.sendTransport?.close();
-  peer.recvTransport?.close();
+      peer.sendTransport?.close();
+      peer.recvTransport?.close();
 
-  room.peers.delete(socket.id);
+      room.peers.delete(socket.id);
+      safeUpdate(room);
 
-  socket.to(socket.roomId).emit("voice:peerLeft", {
-    socketId: socket.id,
+      socket.to(socket.roomId).emit("voice:peerLeft", {
+        socketId: socket.id,
+      });
+
+    });
+
   });
 
-});
+}
 
+function updateAllConsumers(room) {
+  room.peers.forEach(peer => {
+    updateConsumers(room, peer);
   });
+}
+
+function updateConsumers(room, peer) {
+  const maxStreams = MAX_VIDEO_STREAMS[peer.mode];
+  let videoCount = 0;
+
+  const sortedPeers = [...room.peers.values()].sort((a, b) => {
+    if (a.socketId === room.aS) return -1;
+    if (b.socketId === room.aS) return 1;
+    return 0;
+  });
+  for (const other of sortedPeers) {
+
+    for (const producer of other.producers) {
+      if (producer.appData.socketId === peer.socketId) continue;
+
+
+      let consumer = peer.consumerMap.get(producer.id)
+
+      if (!consumer || consumer.closed) {
+        peer.consumerMap.delete(producer.id);
+        continue;
+      }
+      const isVisible = peer.visibleUsers.has(producer.appData.socketId);
+      const isSpeaker = room.aS === producer.appData.socketId;
+
+
+
+
+      if (producer.kind === "audio") {
+        consumer.resume();
+        continue;
+      }
+
+      if (isSpeaker && videoCount < maxStreams) {
+        consumer.resume();
+        videoCount++;
+        continue;
+      }
+
+      const shouldReceive = isVisible && videoCount < maxStreams;
+
+
+
+      if (shouldReceive) {
+
+        consumer.resume();
+
+        if (consumer.type === "simulcast" || consumer.type === "svc") {
+          consumer.setPreferredLayers({
+            spatialLayer: isSpeaker ? 2 : 0
+          });
+        }
+
+        consumer.appData = consumer.appData || {};
+
+        if (!consumer.appData.lastKeyframe ||
+          Date.now() - consumer.appData.lastKeyframe > 2000) {
+
+          consumer.requestKeyFrame();
+          consumer.appData.lastKeyframe = Date.now();
+        }
+
+        videoCount++;
+
+      } else {
+        consumer.pause();
+      }
+    }
+  }
 
 }
