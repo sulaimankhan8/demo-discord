@@ -16,6 +16,14 @@ type PeerVideo = {
   isSelf?: boolean;
 };
 
+type UserWithProducers = {//to be updated
+  socketId: string;
+  username: string;
+  producers: Record<string, ProducerInfo>;
+};
+
+
+
 type ProducerInfo = {
   producerId: string;
   socketId: string;
@@ -37,17 +45,9 @@ export default function VoiceRoom() {
   const [activeSpeaker, setActiveSpeaker] = useState<string | null>(null);
 
   const [page, setPage] = useState(0);
-
-  
-
-  
-
-  const [allUsers, setAllUsers] = useState<any[]>([]);
-  const [visibleUsers, setVisibleUsers] = useState<string[]>([]);
+  const [allUsers, setAllUsers] = useState<UserWithProducers[]>([]);
   const [mode, setMode] = useState<"focus" | "gallery">("focus");
   const PAGE_SIZE = mode === "focus" ? 6 : 24;
-  const totalUsers = allUsers.length + 1; // +1 for self
-const totalPages = Math.ceil(totalUsers / PAGE_SIZE);
   const consumedSetRef = useRef(new Set());
 
   const socketRef = useRef<any>(null);
@@ -110,35 +110,58 @@ const totalPages = Math.ceil(totalUsers / PAGE_SIZE);
     setJoined(false);
   };
 
-  /* -------------------------------- TAB VISIBILITY -------------------------------- */
+  /* ---------------- DERIVED PAGINATION ---------------- */
+  const finalVisibleUsers = useMemo(() => {
+    const orderedUsers = [
+      ...(activeSpeaker ? [activeSpeaker] : []),
+      ...allUsers
+        .map((u) => u.socketId)
+        .filter((id) => id !== activeSpeaker),
+    ];
+
+    const paginated = orderedUsers.slice(
+      page * PAGE_SIZE,
+      (page + 1) * PAGE_SIZE
+    );
+
+    let result = [...paginated];
+
+    if (activeSpeaker && !result.includes(activeSpeaker)) {
+      result = [activeSpeaker, ...result.slice(0, PAGE_SIZE - 1)];
+    }
+
+    return result;
+  }, [allUsers, activeSpeaker, page, PAGE_SIZE]);
+
+  const totalUsers = allUsers.length;
+  const totalPages = Math.ceil(totalUsers / PAGE_SIZE);
+
+  /* ---------------- FIX PAGE OVERFLOW ---------------- */
+  useEffect(() => {
+    if (page >= totalPages) {
+      setPage(Math.max(0, totalPages - 1));
+    }
+  }, [totalPages]);
 
   useEffect(() => {
-    const handleVisibility = () => {
-      if (document.hidden) {
-        log("document hidden — pausing video producer");
-        videoProducerRef.current?.pause();
-      } else {
-        log("document visible — resuming video producer");
-        videoProducerRef.current?.resume();
-      }
-    };
+    setPage(0);
+  }, [mode]);
 
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () =>
-      document.removeEventListener("visibilitychange", handleVisibility);
-  }, []);
-
-  /*-----------visibility-----------*/
+  /* ---------------- SERVER SYNC ---------------- */
   useEffect(() => {
-  if (!visibleUsers.length) return;
+    if (!socketRef.current) return;
 
+    socketRef.current.emit("voice:updateVisible", {
+      visibleUsers: finalVisibleUsers,
+      mode,
+    });
+  }, [finalVisibleUsers, mode]);
+
+  /* ---------------- CONSUME ---------------- */
+  useEffect(() => {
   const run = async () => {
-    for (const userId of visibleUsers) {
-      const user = allUsers.find(p => p.socketId === userId);
-      if (!user) continue;
-
-      const producers: ProducerInfo[] = Object.values(user.producers);
-      for (const producer of producers) {
+    for (const user of allUsers) {
+      for (const producer of Object.values(user.producers)) {
         if (consumedSetRef.current.has(producer.producerId)) continue;
 
         consumedSetRef.current.add(producer.producerId);
@@ -149,53 +172,17 @@ const totalPages = Math.ceil(totalUsers / PAGE_SIZE);
   };
 
   run();
-}, [visibleUsers, allUsers]);
+}, [allUsers]);
 
-  useEffect(() => {
-    if (!socketRef.current) return;
+const bringToFocus = (userId: string) => {
+  setMode("focus");
+  setPage(0);
 
-    socketRef.current.emit("voice:updateVisible", {
-      visibleUsers,
-      mode
-    });
-
-  }, [visibleUsers, mode]);
-
-
-  /*--------focus--------*/
-
-  useEffect(() => {
-    if (!activeSpeaker || !allUsers.length) return;
-
-    if (mode === "focus") {
-      const ordered = [
-        activeSpeaker,
-        ...allUsers
-          .map(u => u.socketId)
-          .filter(id => id !== activeSpeaker)
-      ];
-      setVisibleUsers(ordered.slice(0, 6));
-    }
-
-  }, [activeSpeaker, allUsers, mode]);
-
-
-  /*----------gallery----------*/
-  useEffect(() => {
-    if (mode === "gallery") {
-      const users = allUsers.map(u => u.socketId).slice(0, 24);
-      setVisibleUsers(users);
-    }
-  }, [mode, allUsers]);
-
-  function bringToFocus(userId: string) {
-    setMode("focus");
-
-    setVisibleUsers(prev => {
-      const newList = [userId, ...prev.filter(u => u !== userId)];
-      return newList.slice(0, 6);
-    });
-  }
+  // small delay prevents layout jank
+  requestAnimationFrame(() => {
+    setActiveSpeaker(userId);
+  });
+};
   /* -------------------------------- CLEANUP -------------------------------- */
 
   useEffect(() => {
@@ -620,66 +607,7 @@ const totalPages = Math.ceil(totalUsers / PAGE_SIZE);
   };
 
   
-  const finalVisibleUsers = useMemo(() => {
-    
-  const orderedUsers = [
-    ...(activeSpeaker ? [activeSpeaker] : []),
-    ...allUsers
-      .map(u => u.socketId)
-      .filter(id => id !== activeSpeaker)
-  ];
-
-  const paginated = orderedUsers.slice(
-    page * PAGE_SIZE,
-    (page + 1) * PAGE_SIZE
-  );
-
-  let result = [...paginated];
-
-  if (activeSpeaker && !result.includes(activeSpeaker)) {
-    result = [
-      activeSpeaker,
-      ...result.slice(0, PAGE_SIZE - 1)
-    ];
-  }
-
-  return result;
-}, [allUsers, activeSpeaker, page, PAGE_SIZE]);
-useEffect(() => {
-  if (page >= totalPages) {
-    setPage(Math.max(0, totalPages - 1));
-  }
-}, [totalPages]);
-
-const lastSentRef = useRef<string>("");
-
-useEffect(() => {
-  if (!socketRef.current) return;
-
-  const payload = JSON.stringify({
-    visibleUsers: finalVisibleUsers,
-    mode
-  });
-
-  if (lastSentRef.current === payload) return;
-
-  lastSentRef.current = payload;
-
-  socketRef.current.emit("voice:updateVisible", {
-    visibleUsers: finalVisibleUsers,
-    mode
-  });
-
-}, [finalVisibleUsers, mode]);
-
-useEffect(() => {
-  setVisibleUsers(finalVisibleUsers);
-}, [finalVisibleUsers]);
-
-useEffect(() => {
-  setPage(0);
-}, [mode]);
-
+  
   const gridCols =
     mode === "focus"
       ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
@@ -715,7 +643,7 @@ useEffect(() => {
         </Link>
       </div>
       <div className="px-4 py-2 text-sm text-gray-400">
-        Mode: {mode.toUpperCase()} | Visible: {visibleUsers.length}
+        Mode: {mode.toUpperCase()} | Visible: {finalVisibleUsers.length}
       </div>
       {!joined ? (
         <div className="flex items-center justify-center flex-1">
@@ -730,7 +658,9 @@ useEffect(() => {
         <>
           <div className={`flex-1 grid gap-4 p-4 ${gridCols}`}>
 
-            {peers.map((peer) => (
+            {peers
+  .filter(peer => finalVisibleUsers.includes(peer.socketId) || peer.isSelf)
+  .map((peer) => (
               <div
                 key={peer.socketId}
                 onClick={() => bringToFocus(peer.socketId)}
@@ -741,6 +671,23 @@ useEffect(() => {
 
               >
 
+{(() => {
+  const videoTrack = peer.stream.getVideoTracks()[0];
+
+  const isVideoActive =
+    videoTrack &&
+    videoTrack.readyState === "live" &&
+    !videoTrack.muted;
+
+  if (!isVideoActive) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-800 text-gray-400">
+        {peer.username}
+      </div>
+    );
+  }
+
+  return (
                 <video
                   autoPlay
                   playsInline
@@ -760,6 +707,9 @@ useEffect(() => {
                   }}
                   className="w-full h-full object-cover"
                 />
+ );
+})()}
+
                 <div className="absolute bottom-2 left-2 bg-black/60 px-2 py-1 rounded text-sm">
                   {peer.username}
                 </div>
