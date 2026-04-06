@@ -923,16 +923,25 @@ recvTransport.on("connectionstatechange", (state) => {
       log("video track found?", !!videoTrack, videoTrack?.readyState);
 
       if (videoTrack) {
-        // VP9 does NOT support simulcast in mediasoup the way you're trying.
-        // Keep bandwidth minimal using single stream + server-side pause/resume/layers logic.
-        videoProducerRef.current = await sendTransport.produce({
-          track: videoTrack,
-          codecOptions: {
-            videoGoogleStartBitrate: 400,
-          },
-        });
+        log("🚀 attempting video produce...");
+        try {
+          videoProducerRef.current = await sendTransport.produce({
+            track: videoTrack,
+            codecOptions: {
+              videoGoogleStartBitrate: 400,
+            },
+          });
 
-        log("video producer created", videoProducerRef.current?.id);
+          log("video producer created", videoProducerRef.current?.id);
+        } catch (err) {
+          warn("❌ video produce failed — continuing with audio only", err);
+
+          try {
+            videoTrack.stop();
+          } catch {}
+
+          setCameraOff(true);
+        }
       }
 
       /* ---------- SELF PREVIEW ---------- */

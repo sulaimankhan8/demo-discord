@@ -153,11 +153,8 @@ export function initVoiceNamespace(io) {
               },
               {
                 kind: "video",
-                mimeType: "video/VP9",
+                mimeType: "video/VP8",
                 clockRate: 90000,
-                parameters: {
-                  "profile-id": 2,
-                },
               },
             ],
           });
