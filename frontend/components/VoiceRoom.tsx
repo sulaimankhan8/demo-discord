@@ -64,6 +64,7 @@ export default function VoiceRoom() {
   const localStreamRef = useRef<MediaStream | null>(null);
   const joiningRef = useRef(false);
   const manuallyLeftRef = useRef(false);
+const recvReadyRef = useRef(false);
 
   const consumedSetRef = useRef<Set<string>>(new Set());
   const consumerMapRef = useRef<Map<string, any>>(new Map());
@@ -290,7 +291,7 @@ export default function VoiceRoom() {
     consumerMapRef.current.clear();
     producerOwnerMapRef.current.clear();
     consumedSetRef.current.clear();
-
+recvReadyRef.current = false;
     if (!keepSocketAlive && socketRef.current) {
       try {
         socketRef.current.removeAllListeners();
@@ -346,7 +347,7 @@ export default function VoiceRoom() {
   }
 
   cleanupEverything();
-}, [cleanupEverything]);71
+}, [cleanupEverything]);
 
   /* ---------------- CONSUME ---------------- */
   const consume = useCallback(
@@ -357,7 +358,11 @@ export default function VoiceRoom() {
 
       if (!socket || socket.id === socketId) return;
       if (!device || !recvTransport) return;
-
+if (!recvReadyRef.current) {
+  warn("recv transport not ready, skipping", producerId);
+  consumedSetRef.current.delete(producerId);
+  return;
+}
       try {
         log("requesting consume", { producerId, username, socketId, kind });
 
@@ -863,15 +868,17 @@ export default function VoiceRoom() {
       recvTransportRef.current = recvTransport;
 
       recvTransport.on("connect", ({ dtlsParameters }, callback, errback) => {
-        socket.emit(
-          "voice:connectTransport",
-          { type: "recv", dtlsParameters },
-          (response: any) => {
-            if (response?.error) return errback(response.error);
-            callback();
-          }
-        );
-      });
+  socket.emit(
+    "voice:connectTransport",
+    { type: "recv", dtlsParameters },
+    (response: any) => {
+      if (response?.error) return errback(response.error);
+
+      recvReadyRef.current = true;
+      callback();
+    }
+  );
+});
 
       /* ---------- TRANSPORT STATE ---------- */
       sendTransport.on("connectionstatechange", (state) => {
@@ -944,29 +951,39 @@ recvTransport.on("connectionstatechange", (state) => {
         }
       }
 
-      /* ---------- SELF PREVIEW ---------- */
-      setPeers((prev) => ({
-        ...prev,
-        [socket.id!]: {
-          socketId: socket.id!,
-          username: user.username,
-          stream: new MediaStream(stream.getTracks()),
-          isSelf: true,
-          hasAudio: stream.getAudioTracks().length > 0,
-          hasVideo: stream.getVideoTracks().length > 0,
-          audioEnabled: true,
-          videoEnabled: true,
-        },
-      }));
+   /* ---------- SELF PREVIEW ---------- */
+const finalLocalTracks = [
+  ...(localStreamRef.current?.getAudioTracks() || []),
+  ...(videoProducerRef.current
+    ? (localStreamRef.current?.getVideoTracks() || [])
+    : []),
+];
+
+setPeers((prev) => ({
+  ...prev,
+  [socket.id!]: {
+    socketId: socket.id!,
+    username: user.username,
+    stream: new MediaStream(finalLocalTracks),
+    isSelf: true,
+    hasAudio: finalLocalTracks.some((t) => t.kind === "audio"),
+    hasVideo: finalLocalTracks.some((t) => t.kind === "video"),
+    audioEnabled: true,
+    videoEnabled: !!videoProducerRef.current,
+  },
+}));
 
       /* ---------- INITIAL MEDIA STATE ---------- */
       socket.emit("voice:mediaState", {
-        audio: true,
-        video: true,
-      });
+  audio: true,
+  video: !!videoProducerRef.current,
+});
 
-      socket.emit("voice:getProducers");
       setJoined(true);
+
+setTimeout(() => {
+  socket.emit("voice:getProducers");
+}, 300);
     } catch (err: any) {
       warn("Join voice failed:", err?.message || err);
       leaveVoice();
@@ -1114,15 +1131,21 @@ recvTransport.on("connectionstatechange", (state) => {
         setPeers((prev) => {
           const self = prev[socketRef.current?.id];
           if (!self) return prev;
-
+          
+const finalLocalTracks = [
+  ...(localStreamRef.current?.getAudioTracks() || []),
+  ...(videoProducerRef.current
+    ? (localStreamRef.current?.getVideoTracks() || [])
+    : []),
+];
           return {
             ...prev,
             [self.socketId]: {
               ...self,
-              stream: new MediaStream(localStreamRef.current!.getTracks()),
-              hasAudio: currentAudioTracks.length > 0,
-              hasVideo: true,
-              videoEnabled: true,
+            stream: new MediaStream(finalLocalTracks),
+hasAudio: finalLocalTracks.some(t => t.kind === "audio"),
+hasVideo: finalLocalTracks.some(t => t.kind === "video"),
+videoEnabled: !!videoProducerRef.current,
             },
           };
         });
@@ -1271,34 +1294,35 @@ const PeerTile = React.memo(
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
     useEffect(() => {
-      const video = videoRef.current;
-      const audio = audioRef.current;
+  const video = videoRef.current;
+  const audio = audioRef.current;
 
-      if (!video && !audio) return;
+  if (!video && !audio) return;
 
-      const videoTracks = peer.stream.getVideoTracks();
-      const audioTracks = peer.stream.getAudioTracks();
+  const videoTracks = peer.stream.getVideoTracks();
+  const audioTracks = peer.stream.getAudioTracks();
 
-      const videoStream = new MediaStream(videoTracks);
-      const audioStream = new MediaStream(audioTracks);
+  if (video) {
+    const videoStream = new MediaStream(videoTracks);
+    video.srcObject = videoStream;
 
-      if (video && video.srcObject !== videoStream) {
-        video.srcObject = videoStream;
+    video.play().catch((err) => {
+      console.warn("video play failed", peer.username, err);
+    });
+  }
 
-        video.play().catch((err) => {
-          console.warn("video play failed", peer.username, err);
-        });
-      }
+  if (audio) {
+    const audioStream = new MediaStream(audioTracks);
+    audio.srcObject = audioStream;
 
-      if (audio && audio.srcObject !== audioStream) {
-        audio.srcObject = audioStream;
-
-        audio.play().catch((err) => {
-          console.warn("audio play failed", peer.username, err);
-        });
-      }
-    }, [peer.stream, peer.username]);
-
+    // small delay helps mobile attach track first
+    setTimeout(() => {
+      audio.play().catch((err) => {
+        console.warn("audio play failed", peer.username, err);
+      });
+    }, 100);
+  }
+}, [peer.stream, peer.username]);
     const videoTrack = peer.stream.getVideoTracks()[0];
     const isVideoTrackLive =
       !!videoTrack &&
