@@ -978,12 +978,8 @@ setPeers((prev) => ({
   audio: true,
   video: !!videoProducerRef.current,
 });
-
+socket.emit("voice:getProducers");
       setJoined(true);
-
-setTimeout(() => {
-  socket.emit("voice:getProducers");
-}, 300);
     } catch (err: any) {
       warn("Join voice failed:", err?.message || err);
       leaveVoice();
