@@ -334,17 +334,19 @@ export default function VoiceRoom() {
 
   /* -------------------------------- LEAVE VOICE -------------------------------- */
   const leaveVoice = useCallback(() => {
-    log("leaveVoice() called");
-    manuallyLeftRef.current = true;
+  console.log("🚨 leaveVoice() CALLED");
+  console.trace("leaveVoice stack");
 
-    if (socketRef.current) {
-      try {
-        socketRef.current.emit("voice:leaveRoom");
-      } catch {}
-    }
+  manuallyLeftRef.current = true;
 
-    cleanupEverything();
-  }, [cleanupEverything]);
+  if (socketRef.current) {
+    try {
+      socketRef.current.emit("voice:leaveRoom");
+    } catch {}
+  }
+
+  cleanupEverything();
+}, [cleanupEverything]);71
 
   /* ---------------- CONSUME ---------------- */
   const consume = useCallback(
@@ -873,18 +875,31 @@ export default function VoiceRoom() {
 
       /* ---------- TRANSPORT STATE ---------- */
       sendTransport.on("connectionstatechange", (state) => {
-        log("sendTransport state", state);
-        if (state === "failed" || state === "closed") {
-          if (!manuallyLeftRef.current) leaveVoice();
-        }
-      });
+  log("sendTransport state", state);
 
-      recvTransport.on("connectionstatechange", (state) => {
-        log("recvTransport state", state);
-        if (state === "failed" || state === "closed") {
-          if (!manuallyLeftRef.current) leaveVoice();
-        }
-      });
+  if (state === "failed") {
+    warn("sendTransport failed — waiting before cleanup");
+    setTimeout(() => {
+      if (!manuallyLeftRef.current) {
+        warn("sendTransport still failed");
+        // maybe show reconnect UI instead of leaveVoice()
+      }
+    }, 4000);
+  }
+});
+
+recvTransport.on("connectionstatechange", (state) => {
+  log("recvTransport state", state);
+
+  if (state === "failed") {
+    warn("recvTransport failed — waiting before cleanup");
+    setTimeout(() => {
+      if (!manuallyLeftRef.current) {
+        warn("recvTransport still failed");
+      }
+    }, 4000);
+  }
+});
 
       /* ---------- PRODUCE AUDIO ---------- */
       const audioTrack = stream.getAudioTracks()[0];
