@@ -1268,21 +1268,41 @@ const PeerTile = React.memo(
     onClick: () => void;
   }) {
     const videoRef = useRef<HTMLVideoElement | null>(null);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
 
     useEffect(() => {
       const video = videoRef.current;
-      if (!video) return;
+      const audio = audioRef.current;
 
-      if (video.srcObject !== peer.stream) {
-        video.srcObject = peer.stream;
+      if (!video && !audio) return;
+
+      const videoTracks = peer.stream.getVideoTracks();
+      const audioTracks = peer.stream.getAudioTracks();
+
+      const videoStream = new MediaStream(videoTracks);
+      const audioStream = new MediaStream(audioTracks);
+
+      if (video && video.srcObject !== videoStream) {
+        video.srcObject = videoStream;
+
+        video.play().catch((err) => {
+          console.warn("video play failed", peer.username, err);
+        });
       }
-    }, [peer.stream]);
+
+      if (audio && audio.srcObject !== audioStream) {
+        audio.srcObject = audioStream;
+
+        audio.play().catch((err) => {
+          console.warn("audio play failed", peer.username, err);
+        });
+      }
+    }, [peer.stream, peer.username]);
 
     const videoTrack = peer.stream.getVideoTracks()[0];
     const isVideoTrackLive =
       !!videoTrack &&
-      videoTrack.readyState === "live" &&
-      !videoTrack.muted;
+      videoTrack.readyState === "live";
 
     const shouldShowVideo =
       peer.hasVideo &&
@@ -1296,13 +1316,22 @@ const PeerTile = React.memo(
           isActiveSpeaker ? "ring-4 ring-green-400" : "ring-2 ring-gray-700"
         }`}
       >
+        {/* separate audio playback */}
+        {!peer.isSelf && (
+          <audio
+            ref={audioRef}
+            autoPlay
+            playsInline
+          />
+        )}
+
         {shouldShowVideo ? (
           <video
             ref={videoRef}
             data-socket-id={peer.socketId}
             autoPlay
             playsInline
-            muted={peer.isSelf}
+            muted
             className="w-full h-full object-cover"
           />
         ) : (
