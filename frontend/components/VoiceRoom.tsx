@@ -64,7 +64,6 @@ export default function VoiceRoom() {
   const localStreamRef = useRef<MediaStream | null>(null);
   const joiningRef = useRef(false);
   const manuallyLeftRef = useRef(false);
-const recvReadyRef = useRef(false);
 
   const consumedSetRef = useRef<Set<string>>(new Set());
   const consumerMapRef = useRef<Map<string, any>>(new Map());
@@ -291,7 +290,6 @@ const recvReadyRef = useRef(false);
     consumerMapRef.current.clear();
     producerOwnerMapRef.current.clear();
     consumedSetRef.current.clear();
-recvReadyRef.current = false;
     if (!keepSocketAlive && socketRef.current) {
       try {
         socketRef.current.removeAllListeners();
@@ -358,11 +356,7 @@ recvReadyRef.current = false;
 
       if (!socket || socket.id === socketId) return;
       if (!device || !recvTransport) return;
-if (!recvReadyRef.current) {
-  warn("recv transport not ready, skipping", producerId);
-  consumedSetRef.current.delete(producerId);
-  return;
-}
+
       try {
         log("requesting consume", { producerId, username, socketId, kind });
 
@@ -874,7 +868,6 @@ if (!recvReadyRef.current) {
     (response: any) => {
       if (response?.error) return errback(response.error);
 
-      recvReadyRef.current = true;
       callback();
     }
   );
