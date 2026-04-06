@@ -795,7 +795,23 @@ export default function VoiceRoom() {
         throw new Error(sendParams?.error || "Failed to create send transport");
       }
 
-      const sendTransport = device.createSendTransport(sendParams);
+      const sendTransport = device.createSendTransport({
+        ...sendParams,
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+          {
+            urls: "turn:demo-discord.duckdns.org:3478?transport=tcp",
+            username: "demo",
+            credential: "strongpassword"
+          },
+          {
+            urls: "turns:demo-discord.duckdns.org:5349",
+            username: "demo",
+            credential: "strongpassword"
+          }
+        ]
+      });
       sendTransportRef.current = sendTransport;
 
       sendTransport.on("connect", ({ dtlsParameters }, callback, errback) => {
@@ -825,7 +841,23 @@ export default function VoiceRoom() {
         throw new Error(recvParams?.error || "Failed to create recv transport");
       }
 
-      const recvTransport = device.createRecvTransport(recvParams);
+     const recvTransport = device.createRecvTransport({
+        ...recvParams,
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+          {
+            urls: "turn:demo-discord.duckdns.org:3478?transport=tcp",
+            username: "demo",
+            credential: "strongpassword"
+          },
+          {
+            urls: "turns:demo-discord.duckdns.org:5349",
+            username: "demo",
+            credential: "strongpassword"
+          }
+        ]
+      });
       recvTransportRef.current = recvTransport;
 
       recvTransport.on("connect", ({ dtlsParameters }, callback, errback) => {
