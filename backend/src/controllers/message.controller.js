@@ -2,6 +2,7 @@ import { db } from "../db/index.js";
 import { messages } from "../db/schema.js";
 import { lt, desc } from "drizzle-orm";
 import { messageBuffer, recentMessages } from "../socket.js"; // 🔥 NEW
+import {  getRecentMessages } from "../redis/chatCache.js";
 
 export async function getMessages(req, res) {
   try {
@@ -9,10 +10,22 @@ export async function getMessages(req, res) {
     const before = req.query.before ? BigInt(req.query.before) : null;
 
     /* ---------------- DB SHORT-CIRCUIT (no pagination + recent cache full + no WAL) ---------------- */
-    const canSkipDb =
-      !before &&
-      recentMessages.length >= LIMIT &&
-      messageBuffer.size === 0;
+    const redisRecent = !before ? await getRecentMessages( LIMIT )  : [];
+    
+    const canSkipDb =!before && recentMessages.length >= LIMIT && messageBuffer.size === 0;
+
+    if (canSkipDb) {
+  return res.json({
+    messages:
+      redisRecent.map(
+        (m) => ({
+          ...m,
+          delivered: true,
+        })
+      ),
+    hasMore: true,
+  });
+}
 
     if (canSkipDb) {
       return res.json({
@@ -24,6 +37,14 @@ export async function getMessages(req, res) {
       });
     }
 
+
+    console.log(
+ recentMessages.length
+);
+
+console.log(
+ redisRecent.length
+);
     /* ---------------- DB QUERY ---------------- */
 
 

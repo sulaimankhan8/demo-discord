@@ -163,7 +163,30 @@ export default function ChatBox() {
     }
   };
 
+  /* ---------- presence heartbeat ---------- */
+useEffect(() => {
+  if (!user) return;
 
+  const announcePresence = () => {
+    socket.emit("presence:online", {
+      userId: user.id,
+      username: user.username,
+    });
+  };
+
+  announcePresence();
+
+  socket.on("connect", announcePresence);
+
+  const interval = setInterval(() => {
+    socket.emit("presence:heartbeat");
+  }, 20000);
+
+  return () => {
+    clearInterval(interval);
+    socket.off("connect", announcePresence);
+  };
+}, [user]);
   /* ---------- realtime messages ---------- */
    useEffect(() => {
     socket.on("new-message", (msg: Message) => {
