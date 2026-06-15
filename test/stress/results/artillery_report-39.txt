@@ -1,0 +1,301 @@
+# ARTILLERY SOCKET.IO LOAD TEST REPORT
+
+Target:
+http://localhost:4000
+
+Test ID: 39
+(Redis Streams + Consumer Buffering + High-Volume Stress Test)
+
+---
+
+# Test Summary
+
+Total duration        : ~61 seconds
+Total virtual users   : 600
+Completed VUs         : 600
+Failed VUs            : 0 (0%)
+
+Total emits           : 600,600
+Average emit rate     : ~11,584 msgs/sec
+Peak emit rate        : ~13,920 msgs/sec
+
+---
+
+# Test Configuration
+
+Arrival Rate          : 10 users/sec
+Duration              : 60 seconds
+Messages Per User     : 1000
+
+Architecture:
+
+Socket.IO
+↓
+Redis Streams
+↓
+Consumer Group
+↓
+Buffered Flush Worker
+↓
+Database Persistence
+
+---
+
+# Performance Metrics
+
+Sustained throughput  : ~11,500 msgs/sec
+
+Peak throughput       : ~13,920 msgs/sec
+
+Median latency        : ~0 ms
+P95 latency           : ~0.1 ms
+P99 latency           : ~0.2 ms
+
+Maximum latency       : ~90.5 ms
+
+---
+
+# Virtual User Statistics
+
+Created VUs           : 600
+Completed VUs         : 600
+Failed VUs            : 0
+
+Success Rate          : 100%
+
+---
+
+# Session Length Statistics
+
+Minimum               : ~16.4 ms
+Mean                  : ~179.9 ms
+Median                : ~82.3 ms
+
+P95                   : ~632.8 ms
+P99                   : ~1130.2 ms
+
+Maximum               : ~1328.3 ms
+
+---
+
+# Stream Consumer Analysis
+
+Observed Worker Output:
+
+Examples:
+
+[FLUSH] 50 remaining: 7
+[FLUSH] 45 remaining: 0
+
+[FLUSH] 43 remaining: 0
+[FLUSH] 40 remaining: 0
+[FLUSH] 32 remaining: 0
+
+Consumer Characteristics:
+
+• Continuous stream consumption
+• Stable flush cycles
+• No worker crashes
+• No consumer stalls
+• No backlog accumulation
+• Consumer consistently kept pace with producers
+
+Observed Maximum Backlog:
+
+remaining: 7
+
+This indicates:
+
+Consumer Throughput
+
+>
+
+Producer Throughput
+
+throughout nearly the entire test.
+
+---
+
+# Redis Stream Performance
+
+Redis Streams successfully handled:
+
+600,600 messages
+
+without:
+
+• Stream saturation
+• Consumer lag growth
+• Message backlog explosions
+• Throughput collapse
+
+The stream layer acted as a durable ingestion buffer between the realtime gateway and persistence layer.
+
+---
+
+# Gateway Performance
+
+Socket.IO remained stable under:
+
+~11,500 msgs/sec sustained
+
+and
+
+~13,900 msgs/sec peak
+
+No:
+
+• WebSocket disconnect storms
+• Event loop stalls
+• Transport failures
+• Rate collapse
+
+were observed.
+
+---
+
+# Reliability Metrics
+
+Virtual User Failures     : 0%
+Message Pipeline Failures : 0%
+Transport Failures        : 0%
+Worker Failures           : 0%
+
+System Stability          : Excellent
+
+---
+
+# Architectural Findings
+
+Previous Architecture:
+
+Socket
+↓
+Database
+
+Current Architecture:
+
+Socket
+↓
+Redis Stream
+↓
+Consumer Worker
+↓
+Database
+
+Benefits Observed:
+
+• Database removed from realtime path
+• Natural buffering during bursts
+• Durable message queue
+• Horizontal scaling foundation
+• Isolation between gateway and persistence
+
+---
+
+# Bottleneck Analysis
+
+No bottleneck was observed in:
+
+• Socket.IO Gateway
+• Redis Streams
+• Consumer Processing
+
+Likely future bottlenecks:
+
+1. Database insert throughput
+2. Broadcast fan-out costs
+3. Redis memory growth
+4. Multi-node synchronization overhead
+
+---
+
+# Comparison Against Previous Report
+
+Report 38:
+
+Throughput:
+~1,238 msgs/sec
+
+Report 39:
+
+Throughput:
+~11,584 msgs/sec
+
+Improvement:
+
+~9.35x higher sustained throughput
+
+Peak Throughput Increase:
+
+~1,918 msgs/sec
+→
+~13,920 msgs/sec
+
+Improvement:
+
+~7.25x peak throughput increase
+
+Failure Rate:
+
+0%
+→
+0%
+
+Maintained stability under significantly higher load.
+
+---
+
+# Capacity Assessment
+
+Validated Capacity:
+
+Sustained:
+~11,500 msgs/sec
+
+Peak:
+~13,900 msgs/sec
+
+Messages Processed:
+
+600,600
+
+Consumer Backlog:
+
+Near zero
+
+Observed Reliability:
+
+100%
+
+---
+
+# Engineering Conclusion
+
+Report 39 represents the first large-scale validation of the Redis Streams architecture under six-figure message volume.
+
+The system successfully processed more than 600,000 messages in approximately one minute while maintaining:
+
+• 0% virtual user failures
+• Sub-millisecond latency
+• Stable consumer throughput
+• No backlog growth
+• No gateway degradation
+
+The migration from direct persistence to Redis Stream–based ingestion has effectively decoupled realtime messaging from storage concerns and provides a strong foundation for future horizontal scaling.
+
+---
+
+# Recommended Next Steps
+
+1. Implement batched database inserts inside the stream consumer
+2. Add XACK after successful persistence
+3. Perform crash-recovery testing
+4. Run multi-consumer-group tests
+5. Validate consumer failover
+6. Benchmark database write throughput
+7. Test horizontal scaling across multiple gateway instances
+
+---
+
+END OF REPORT

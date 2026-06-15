@@ -12,7 +12,7 @@ export async function getMessages(req, res) {
     /* ---------------- DB SHORT-CIRCUIT (no pagination + recent cache full + no WAL) ---------------- */
     const redisRecent = !before ? await getRecentMessages( LIMIT )  : [];
     
-    const canSkipDb =!before && recentMessages.length >= LIMIT && messageBuffer.size === 0;
+    const canSkipDb =!before && redisRecent.length >= LIMIT && messageBuffer.size === 0;
 
     if (canSkipDb) {
   return res.json({
@@ -27,15 +27,7 @@ export async function getMessages(req, res) {
   });
 }
 
-    if (canSkipDb) {
-      return res.json({
-        messages: recentMessages.slice(-LIMIT).map(m => ({
-          ...m,
-          delivered: true,
-        })),
-        hasMore: true,
-      });
-    }
+  
 
 
     console.log(

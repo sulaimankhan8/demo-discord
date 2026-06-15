@@ -3,6 +3,7 @@ import app from "./app.js";
 import { initSocket } from "./socket.js";
 import { ENV } from "./utils/env.js";
 import { initMediasoup } from "./voice/mediasoup.js";
+import "./events/index.js";
 
 const server = http.createServer(app);
 

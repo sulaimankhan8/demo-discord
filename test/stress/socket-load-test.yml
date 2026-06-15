@@ -1,5 +1,6 @@
 config:
-  target: "https://demo-discord.duckdns.org"
+  target: "http://localhost:4000"
+
   engine: socketio
 
   socketio:
@@ -9,23 +10,14 @@ config:
     path: /socket.io
 
   phases:
-    - name: warm-up
-      duration: 30
+    - duration: 60
       arrivalRate: 10
-
-    - name: steady-load
-      duration: 60
-      arrivalRate: 20
-
-    - name: stress
-      duration: 60
-      arrivalRate: 40
 
   processor: "./user-generator.js"
 
 scenarios:
-  - name: realistic-chat-traffic
-    engine: socketio
+  - engine: socketio
+
     flow:
 
       - function: pickUser
@@ -37,19 +29,15 @@ scenarios:
             username: "{{ username }}"
 
       - loop:
-          - emit: { channel: typing:start }
-          - think: 0.1
-          - emit: { channel: typing:stop }
 
           - emit:
               channel: send-message
               data:
                 userId: "{{ userId }}"
                 username: "{{ username }}"
-                content: "hello"
+                content: "load-test"
 
-          - think: 0.3
+        count: 1000
 
-        count: 10
 
-      - think: 5
+        # https://demo-discord.duckdns.org    

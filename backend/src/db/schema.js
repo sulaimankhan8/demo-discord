@@ -6,6 +6,8 @@ import {
   uuid,
   bigint,
   primaryKey,
+  jsonb,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 /* ---------------- USERS ---------------- */
@@ -55,3 +57,84 @@ export const messageReactionCounts = pgTable(
   })
 );
 
+/* ---------------- ANALYTICS EVENTS ---------------- */
+
+export const analyticsEvents =
+  pgTable(
+    "analytics_events",
+    {
+      id: uuid("id")
+        .defaultRandom()
+        .primaryKey(),
+
+      eventType:
+        text("event_type")
+          .notNull(),
+
+      payload:
+        jsonb("payload")
+          .notNull(),
+
+      createdAt:
+        timestamp("created_at")
+          .defaultNow(),
+    }
+  );
+
+/* ---------------- NOTIFICATIONS ---------------- */
+
+export const notifications =
+  pgTable(
+    "notifications",
+    {
+      id: uuid("id")
+        .defaultRandom()
+        .primaryKey(),
+
+      userId:
+        uuid("user_id")
+          .notNull(),
+
+      type:
+        text("type")
+          .notNull(),
+
+      title:
+        text("title"),
+
+      payload:
+        jsonb("payload"),
+
+      isRead:
+        boolean("is_read")
+          .default(false),
+
+      createdAt:
+        timestamp("created_at")
+          .defaultNow(),
+    }
+  );
+
+/* ---------------- USER NOTIFICATION SETTINGS ---------------- */
+
+export const userNotificationSettings =
+  pgTable(
+    "user_notification_settings",
+    {
+      userId:
+        uuid("user_id")
+          .primaryKey(),
+
+      pushEnabled:
+        integer("push_enabled")
+          .default(1),
+
+      emailEnabled:
+        integer("email_enabled")
+          .default(0),
+
+      soundEnabled:
+        integer("sound_enabled")
+          .default(1),
+    }
+  );

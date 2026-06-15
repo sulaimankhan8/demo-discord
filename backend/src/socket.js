@@ -21,6 +21,28 @@ import {
   pushRecentMessage
 } from "./redis/chatCache.js";
 
+import { canSendMessage } from "./redis/ratelimiter.js";
+
+import { appendMessage } from "./redis/messageStream/messageStream.js";
+// import {
+//   joinRoom,
+//   leaveRoom
+// } from "./redis/rooms.js";
+
+
+import {
+  eventBus,
+} from "./events/eventBus.js";
+
+import {
+  EVENTS,
+} from "./events/events.js";
+
+import {
+  publishMessageCreated,
+}
+  from "./events/publishers/message.publisher.js";
+
 /* ---------------- CONFIG ---------------- */
 let BATCH_SIZE = 300;
 const FLUSH_INTERVAL = 200;
@@ -92,10 +114,10 @@ export function initSocket(server) {
     /* realtime */
 
     console.log(
- "[CONNECTED]",
- process.pid,
- socket.id
-);
+      "[CONNECTED]",
+      process.pid,
+      socket.id
+    );
     socket.join("global-chat");
 
     if (process.env.NODE_ENV !== "production") {
@@ -117,6 +139,20 @@ export function initSocket(server) {
         status: "online",
       });
 
+
+      eventBus.emit(
+        EVENTS.USER_ONLINE,
+        {
+          userId,
+          username,
+        }
+      );
+
+      //       await joinRoom(
+      //   "global-chat",
+      //   userId
+      // );
+
       // 🔥 CHANGE: broadcast presence only to room members
       socket.to("global-chat").emit("presence:update", {
         userId,
@@ -128,8 +164,25 @@ export function initSocket(server) {
     /* ---------- DISCONNECT ---------- */
     socket.on("disconnect", async () => {
       if (socket.userId) {
+
+        //         await leaveRoom(
+        //   "global-chat",
+        //   socket.userId
+        // );
         const fullyOffline = await setOffline(socket.userId, socket.id);
         if (fullyOffline) {
+
+          eventBus.emit(
+            EVENTS.USER_OFFLINE,
+            {
+              userId:
+                socket.userId,
+              username:
+                socket.username,
+            }
+          );
+
+
           socket
             .to("global-chat")
             .emit("presence:update", {
@@ -137,6 +190,8 @@ export function initSocket(server) {
               status: "offline",
             });
         }
+
+
         /* � CHANGE: send DELTA only to room members */
       }
 
@@ -146,11 +201,21 @@ export function initSocket(server) {
     });
 
     /* ---------- SEND MESSAGE ---------- */
-    socket.on("send-message", ({ userId, username, content }) => {
+    socket.on("send-message", async ({ userId, username, content }) => {
       if (io.engine.clientsCount > 2000) {
         socket.emit("server-busy");
         return;
       } // hard limit 2k clients
+
+      if (!userId) {
+        return;
+      }
+      const allowed = await canSendMessage(userId);
+
+      if (!allowed) {
+        socket.emit("rate-limit");
+        return;
+      }
 
       const snowflakeId = snowflakeGn.generate();
       const createdAt = new Date();
@@ -170,12 +235,20 @@ export function initSocket(server) {
         createdAt: createdAt.toISOString(),
       };
       outboundQueue.push(messagePayload);
-     pushRecent(messagePayload);
+      pushRecent(messagePayload);
 
       pushRecentMessage(
-  messagePayload
-).catch(console.error);
+        messagePayload
+      ).catch(console.error);
 
+      publishMessageCreated({
+        userId,
+        username,
+        content,
+        snowflake:
+          message.snowflake,
+        createdAt,
+      });
       // 🔥 CHANGE: shard buffer by roomId (or userId % N for fairness) ,WAL
       const shardId = "global-chat"; // can extend to userId % N for multi-room
       if (!messageBuffer.has(shardId)) {
@@ -189,6 +262,7 @@ export function initSocket(server) {
       }
 
       WAL.set(message.snowflake, message);
+      appendMessage(message).catch(console.error);
       shardBuffer.push(message);
       oldestMessageTime = Math.min(oldestMessageTime, createdAt.getTime());
 
