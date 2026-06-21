@@ -10,7 +10,7 @@ export async function canSendMessage(
   if (count === 1) {
     await redis.expire(
       key,
-      10
+      1
     );
   }
 

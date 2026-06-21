@@ -36,6 +36,8 @@ scenarios:
                 userId: "{{ userId }}"
                 username: "{{ username }}"
                 content: "load-test"
+            
+          - think: 0.05
 
         count: 1000
 

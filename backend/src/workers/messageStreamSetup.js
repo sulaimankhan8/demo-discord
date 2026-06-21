@@ -5,7 +5,7 @@ try {
         "CREATE",
         "stream:messages",
         "message-consumers",
-        "$",
+        "0",
         "MKSTREAM"
     );
 

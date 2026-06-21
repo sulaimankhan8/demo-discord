@@ -1,7 +1,7 @@
 import { db } from "../db/index.js";
 import { messages } from "../db/schema.js";
 import { lt, desc } from "drizzle-orm";
-import { messageBuffer, recentMessages } from "../socket.js"; // 🔥 NEW
+//import {  recentMessages } from "../socket.js"; // 🔥 NEW
 import {  getRecentMessages } from "../redis/chatCache.js";
 
 export async function getMessages(req, res) {
@@ -12,7 +12,7 @@ export async function getMessages(req, res) {
     /* ---------------- DB SHORT-CIRCUIT (no pagination + recent cache full + no WAL) ---------------- */
     const redisRecent = !before ? await getRecentMessages( LIMIT )  : [];
     
-    const canSkipDb =!before && redisRecent.length >= LIMIT && messageBuffer.size === 0;
+    const canSkipDb =!before && redisRecent.length >= LIMIT;
 
     if (canSkipDb) {
   return res.json({
@@ -30,9 +30,9 @@ export async function getMessages(req, res) {
   
 
 
-    console.log(
- recentMessages.length
-);
+//     console.log(
+//  recentMessages.length
+// );
 
 console.log(
  redisRecent.length
@@ -61,32 +61,39 @@ console.log(
     const dbMessages = await query;
 
     /* ---------------- IN-MEMORY (WAL) ---------------- */
-    const walMessages  = Array.from(messageBuffer.values())
-      .flat()
-      .filter((m) => !before || BigInt(m.snowflake) < before)
-      .map((m) => ({
-        id: m.id ?? null,
-        userId: m.userId,
-        username: m.username,
-        content: m.content,
-        snowflake: m.snowflake.toString(),
-        createdAt: m.createdAt,
-      }));
+    // const walMessages  = Array.from(messageBuffer.values())
+    //   .flat()
+    //   .filter((m) => !before || BigInt(m.snowflake) < before)
+    //   .map((m) => ({
+    //     id: m.id ?? null,
+    //     userId: m.userId,
+    //     username: m.username,
+    //     content: m.content,
+    //     snowflake: m.snowflake.toString(),
+    //     createdAt: m.createdAt,
+    //   }));
 
       /* ---------------- RECENT CACHE (hot accelerator) ---------------- */
 
-    const recent = recentMessages
-      .filter(m => !before || BigInt(m.snowflake) < before)
-      .map(m => ({
-        ...m,
-        id: null,
-      }));
+    const recent =
+  redisRecent
+    .filter(
+      (m) =>
+        !before ||
+        BigInt(
+          m.snowflake
+        ) < before
+    )
+    .map((m) => ({
+      ...m,
+      id: null,
+    }));
 
     /* ---------------- MERGE & SORT (DB wins > WAL > recent) ---------------- */
     const mergedMap = new Map();
 
     // Merge order: recent < WAL < DB (ensures DB is source of truth)
-    for (const m of [...recent, ...walMessages, ...dbMessages]) {
+    for (const m of [...recent,  ...dbMessages]) {
       mergedMap.set(m.snowflake.toString(), m);
     }
 
