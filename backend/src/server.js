@@ -7,10 +7,10 @@ import "./events/index.js";
 import { setupMessageStream } from "./workers/messageStreamSetup.js";
 
 const server = http.createServer(app);
- await setupMessageStream
+
+await setupMessageStream();
 await initMediasoup();
 initSocket(server);
-
 
 server.listen(ENV.PORT, "0.0.0.0", () => {
   console.log(`Backend running on port ${ENV.PORT}`);

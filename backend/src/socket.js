@@ -29,16 +29,54 @@ import { EVENTS } from "./events/events.js";
 import { initVoiceNamespace } from "./voice/voice.socket.js";
 import { subscriber } from "./redis/pubsub/subscriber.js";
 import { CHANNELS } from "./redis/pubsub/channels.js";
+import { toggleMessageReaction } from "./redis/reactions/reactionService.js";
 
 /* ---------------- CONFIG ---------------- */
 const MAX_OUTBOUND_BATCH = 1000;
 const OUTBOUND_FLUSH_INTERVAL = 5;
+const REACTION_FLUSH_INTERVAL = 250;
 
 /* ---------------- STATE ---------------- */
 let io;
 const outboundQueue = [];
 export const recentMessages = [];
 const RECENT_LIMIT = 100;
+
+// 250ms Reaction Coalescing Buffer: channel -> Map<snowflake, Map<emoji, { delta: number, total: number }>>
+const reactionBuffer = new Map();
+let isReactionFlushScheduled = false;
+
+function scheduleReactionBroadcast() {
+  if (isReactionFlushScheduled) return;
+  isReactionFlushScheduled = true;
+
+  setTimeout(() => {
+    isReactionFlushScheduled = false;
+    if (!io || reactionBuffer.size === 0) return;
+
+    for (const [channelId, messagesMap] of reactionBuffer.entries()) {
+      const updates = [];
+
+      for (const [snowflake, emojisMap] of messagesMap.entries()) {
+        const deltas = [];
+        for (const [emoji, info] of emojisMap.entries()) {
+          if (info.delta !== 0) {
+            deltas.push({ emoji, delta: info.delta, total: info.total });
+          }
+        }
+        if (deltas.length > 0) {
+          updates.push({ snowflake, deltas });
+        }
+      }
+
+      if (updates.length > 0) {
+        io.to(channelId).emit("reaction:batch_update", { updates });
+      }
+    }
+
+    reactionBuffer.clear();
+  }, REACTION_FLUSH_INTERVAL);
+}
 
 // Track total messages received across all sockets
 let totalMessagesReceived = 0;
@@ -232,6 +270,53 @@ export function initSocket(server) {
 
     socket.on("typing:stop", () => {
       socket.to("global-chat").volatile.emit("typing:stop", socket.userId);
+    });
+
+    /* ---------------- MESSAGE REACTIONS ---------------- */
+    socket.on("message:react", async ({ snowflake, channelId = "global-chat", emoji }, ack) => {
+      try {
+        const userId = socket.userId || "anonymous";
+        if (!snowflake || !emoji) {
+          ack?.({ ok: false, error: "Missing snowflake or emoji" });
+          return;
+        }
+
+        // 1. In-memory atomic toggle in Redis (<0.2ms)
+        const result = await toggleMessageReaction(snowflake, userId, emoji);
+
+        // 2. Immediate ACK back to the clicking user
+        ack?.({
+          ok: true,
+          snowflake,
+          emoji,
+          action: result.action,
+          count: result.count,
+          hasReacted: result.hasReacted,
+        });
+
+        // 3. Buffer delta for 250ms coalesced channel-wide broadcast
+        if (!reactionBuffer.has(channelId)) {
+          reactionBuffer.set(channelId, new Map());
+        }
+        const msgMap = reactionBuffer.get(channelId);
+        if (!msgMap.has(snowflake)) {
+          msgMap.set(snowflake, new Map());
+        }
+        const emojiMap = msgMap.get(snowflake);
+        const prevInfo = emojiMap.get(emoji) || { delta: 0, total: result.count };
+        const deltaChange = result.action === "ADDED" ? 1 : -1;
+
+        emojiMap.set(emoji, {
+          delta: prevInfo.delta + deltaChange,
+          total: result.count,
+        });
+
+        // 4. Schedule 250ms broadcast flush
+        scheduleReactionBroadcast();
+      } catch (err) {
+        console.error("[Socket] message:react error:", err);
+        ack?.({ ok: false, error: err.message });
+      }
     });
   });
 }

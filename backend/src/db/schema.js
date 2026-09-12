@@ -33,11 +33,10 @@ export const messages = pgTable("messages", {
 
 export const messageReactions = pgTable("message_reactions", {
   id: uuid("id").defaultRandom().primaryKey(),
-
-  messageId: uuid("message_id").notNull(),
-  userId: uuid("user_id").notNull(),
-
-  emojiCode: integer("emoji_code").notNull(),
+  messageSnowflake: bigint("message_snowflake", { mode: "string" }).notNull(),
+  userId: text("user_id").notNull(),
+  emojiCode: text("emoji_code").notNull(),
+  action: text("action").notNull().default("ADDED"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -45,15 +44,12 @@ export const messageReactions = pgTable("message_reactions", {
 export const messageReactionCounts = pgTable(
   "message_reaction_counts",
   {
-    messageId: uuid("message_id")
-      .notNull()
-      .references(() => messages.id, { onDelete: "cascade" }),
-
-    emojiCode: integer("emoji_code").notNull(),
+    messageSnowflake: bigint("message_snowflake", { mode: "string" }).notNull(),
+    emojiCode: text("emoji_code").notNull(),
     count: integer("count").notNull().default(0),
   },
   (t) => ({
-    pk: primaryKey(t.messageId, t.emojiCode),
+    pk: primaryKey({ columns: [t.messageSnowflake, t.emojiCode] }),
   })
 );
 

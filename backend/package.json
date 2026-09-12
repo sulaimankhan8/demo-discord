@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "streamWorker": "node src/workers/messageStreamConsumer.worker.js",
+    "reactionWorker": "node src/workers/reactionStreamConsumer.worker.js",
     "notificationWorker": "node src/workers/notification.worker.js",
     "analyticsWorker": "node src/workers/analytics.worker.js",
     "pull": "drizzle-kit pull",

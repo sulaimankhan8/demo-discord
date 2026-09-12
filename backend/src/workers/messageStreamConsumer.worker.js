@@ -14,11 +14,19 @@ const GROUP = "message-consumers";
 const CONSUMER = `worker-${process.pid}`;
 
 /* ---------------- CONFIG ---------------- */
-const BATCH_SIZE = 4000;
-const FLUSH_INTERVAL = 100;
-const PRESSURE_FLUSH_AGE = 1000;
+const BATCH_SIZE = 1000;
+const FLUSH_INTERVAL = 50;
+const PRESSURE_FLUSH_AGE = 200;
 const MAX_CONCURRENT_FLUSHES = 1; // ✅ Single flush for PostgreSQL
 const RECOVERY_IDLE_TIME = 10000;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function normalizeUserId(userId) {
+  if (typeof userId === "string" && UUID_REGEX.test(userId)) {
+    return userId;
+  }
+  return "00000000-0000-0000-0000-000000000000";
+}
 
 /* ---------------- METRICS ---------------- */
 let totalRead = 0;
@@ -97,7 +105,7 @@ async function flushMessages() {
       .insert(messages)
       .values(
         validMessages.map((m) => ({
-          userId: m.userId,
+          userId: normalizeUserId(m.userId),
           snowflake: m.snowflake,
           username: m.username || 'unknown',
           content: m.content || '',
@@ -345,22 +353,28 @@ async function consumeNewMessages() {
 }
 
 /* ---------------- START ---------------- */
-async function start() {
+export async function startMessageConsumer() {
   try {
     await redis.xgroup("CREATE", STREAM, GROUP, "0", "MKSTREAM");
+    console.log("✅ Message stream consumer group ready.");
   } catch (err) {
-    if (!err.message.includes("BUSYGROUP")) {
-      process.exit(1);
+    if (!err.message?.includes("BUSYGROUP")) {
+      console.error("❌ Message consumer group error:", err);
     }
   }
 
+  console.log(`🚀 Message Stream Consumer [${CONSUMER}] started.`);
   await recoverPendingMessages();
   await consumeNewMessages();
 }
 
-start().catch(() => {
-  process.exit(1);
-});
+// Auto-start if executed directly via node CLI
+if (process.argv[1] && process.argv[1].replace(/\\/g, "/").includes("messageStreamConsumer.worker.js")) {
+  startMessageConsumer().catch((err) => {
+    console.error("Fatal message consumer error:", err);
+    process.exit(1);
+  });
+}
 
 /* ---------------- SHUTDOWN ---------------- */
 async function shutdown() {

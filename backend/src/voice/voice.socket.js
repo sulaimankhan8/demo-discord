@@ -127,6 +127,114 @@ function safeUpdate(room) {
   }, 50);
 }
 
+const roomPromises = new Map();
+
+async function getOrCreateRoom(roomId, voice) {
+  if (rooms.has(roomId)) {
+    return rooms.get(roomId);
+  }
+
+  if (roomPromises.has(roomId)) {
+    return roomPromises.get(roomId);
+  }
+
+  const promise = (async () => {
+    try {
+      console.log(`[VOICE] Creating router for room ${roomId}`);
+
+      const worker = getNextWorker();
+
+      const router = await worker.createRouter({
+        mediaCodecs: [
+          {
+            kind: "audio",
+            mimeType: "audio/opus",
+            clockRate: 48000,
+            channels: 2,
+          },
+          {
+            kind: "video",
+            mimeType: "video/VP8",
+            clockRate: 90000,
+          },
+          {
+            kind: "video",
+            mimeType: "video/VP9",
+            clockRate: 90000,
+          },
+          {
+            kind: "video",
+            mimeType: "video/H264",
+            clockRate: 90000,
+            parameters: {
+              "packetization-mode": 1,
+              "profile-level-id": "42e01f",
+              "level-asymmetry-allowed": 1,
+            },
+          },
+        ],
+      });
+
+      console.log(`[VOICE] Room ${roomId} assigned to worker ${worker.pid}`);
+
+      const audioObserver = await router.createAudioLevelObserver({
+        maxEntries: 1,
+        threshold: -55,
+        interval: 500,
+      });
+
+      const room = {
+        router,
+        audioObserver,
+        peers: new Map(),
+        aS: null,
+        updateTimeout: null,
+        resumeTimers: new Set(),
+      };
+
+      rooms.set(roomId, room);
+
+      audioObserver.on("volumes", (volumes) => {
+        if (!volumes.length) return;
+
+        const speaker = volumes[0].producer.appData.socketId;
+        const currentRoom = rooms.get(roomId);
+        if (!currentRoom) return;
+
+        if (currentRoom.aS === speaker) return;
+
+        currentRoom.aS = speaker;
+
+        voice.to(roomId).emit("voice:activeSpeaker", {
+          socketId: speaker,
+        });
+
+        safeUpdate(currentRoom);
+      });
+
+      audioObserver.on("silence", () => {
+        const currentRoom = rooms.get(roomId);
+        if (!currentRoom) return;
+
+        currentRoom.aS = null;
+
+        voice.to(roomId).emit("voice:activeSpeaker", {
+          socketId: null,
+        });
+
+        safeUpdate(currentRoom);
+      });
+
+      return room;
+    } finally {
+      roomPromises.delete(roomId);
+    }
+  })();
+
+  roomPromises.set(roomId, promise);
+  return promise;
+}
+
 export function initVoiceNamespace(io) {
   const voice = io.of("/voice");
 
@@ -138,77 +246,7 @@ export function initVoiceNamespace(io) {
       try {
         log(socket, "JOIN_ROOM", { roomId, username });
 
-        if (!rooms.has(roomId)) {
-          console.log(`[VOICE] Creating router for room ${roomId}`);
-
-          const worker = getNextWorker();
-
-          const router = await worker.createRouter({
-            mediaCodecs: [
-              {
-                kind: "audio",
-                mimeType: "audio/opus",
-                clockRate: 48000,
-                channels: 2,
-              },
-              {
-                kind: "video",
-                mimeType: "video/VP8",
-                clockRate: 90000,
-              },
-            ],
-          });
-
-          console.log(`[VOICE] Room ${roomId} assigned to worker ${worker.pid}`);
-
-          const audioObserver = await router.createAudioLevelObserver({
-            maxEntries: 1,
-            threshold: -55,
-            interval: 500,
-          });
-
-          rooms.set(roomId, {
-            router,
-            audioObserver,
-            peers: new Map(),
-            aS: null,
-            updateTimeout: null,
-            resumeTimers: new Set(),
-          });
-
-          audioObserver.on("volumes", (volumes) => {
-            if (!volumes.length) return;
-
-            const speaker = volumes[0].producer.appData.socketId;
-            const room = rooms.get(roomId);
-            if (!room) return;
-
-            if (room.aS === speaker) return;
-
-            room.aS = speaker;
-
-            voice.to(roomId).emit("voice:activeSpeaker", {
-              socketId: speaker,
-            });
-
-            safeUpdate(room);
-          });
-
-          audioObserver.on("silence", () => {
-            const room = rooms.get(roomId);
-            if (!room) return;
-
-            room.aS = null;
-
-            voice.to(roomId).emit("voice:activeSpeaker", {
-              socketId: null,
-            });
-
-            safeUpdate(room);
-          });
-        }
-
-        const room = rooms.get(roomId);
+        const room = await getOrCreateRoom(roomId, voice);
 
         socket.join(roomId);
         socket.roomId = roomId;
@@ -343,8 +381,18 @@ export function initVoiceNamespace(io) {
         console.log(`[VOICE] Transport created type=${type} socket=${socket.id}`);
 
         if (type === "send") {
+          if (peer.sendTransport) {
+            try {
+              peer.sendTransport.close();
+            } catch {}
+          }
           peer.sendTransport = transport;
         } else {
+          if (peer.recvTransport) {
+            try {
+              peer.recvTransport.close();
+            } catch {}
+          }
           peer.recvTransport = transport;
         }
 
@@ -532,6 +580,24 @@ export function initVoiceNamespace(io) {
       } catch (err) {
         console.error("[VOICE] Consume error:", err);
         callback({ error: "Consume failed" });
+      }
+    });
+
+    /* ---------------- CLOSE CONSUMER ---------------- */
+    socket.on("voice:closeConsumer", ({ producerId }) => {
+      const room = rooms.get(socket.roomId);
+      if (!room) return;
+      const peer = room.peers.get(socket.id);
+      if (!peer) return;
+
+      const consumer = peer.consumerMap.get(producerId);
+      if (consumer) {
+        try {
+          consumer.close();
+        } catch {}
+        peer.consumers = peer.consumers.filter((c) => c.id !== consumer.id);
+        peer.consumerMap.delete(producerId);
+        safeUpdate(room);
       }
     });
 

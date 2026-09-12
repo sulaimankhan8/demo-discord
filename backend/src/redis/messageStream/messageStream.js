@@ -1,7 +1,7 @@
 import { redis } from "../index.js";
 import pLimit from "p-limit";
 
-export const MESSAGE_STREAM = ";stream:messages"
+export const MESSAGE_STREAM = "stream:messages";
 
 // ✅ Redis shared metrics keys
 const METRICS_KEY = "metrics:producer";

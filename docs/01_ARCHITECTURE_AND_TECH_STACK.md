@@ -49,7 +49,8 @@ demo-discord/
 │   │   ├── gateways/            # Gateway abstraction for socket namespaces
 │   │   ├── queues/              # BullMQ queue instances (analytics, notifications)
 │   │   ├── redis/               # Redis connection, PubSub, presence, rate-limiting & streams
-│   │   │   ├── messageStream/   # Redis Streams producer with micro-batching & metrics
+│   │   │   ├── messageStream/   # Redis Streams producer for chat messages
+│   │   │   ├── reactions/       # In-memory Redis reaction engine & stream producer
 │   │   │   ├── pubsub/          # Pub/Sub channels, publishers, and subscribers
 │   │   │   └── presence.js      # Redis presence storage & heartbeat refreshes
 │   │   ├── routes/              # Express API route declarations
@@ -58,9 +59,10 @@ demo-discord/
 │   │   │   ├── mediasoup.js     # Multi-core C++ worker pool management & auto-restart
 │   │   │   └── voice.socket.js  # Voice namespace (/voice) signaling & consumer routing
 │   │   ├── workers/             # Background consumer workers
-│   │   │   ├── messageStreamConsumer.worker.js # Stream consumer -> PostgreSQL batch flusher
-│   │   │   ├── notification.worker.js          # BullMQ notification job worker
-│   │   │   └── analytics.worker.js             # BullMQ analytics job worker
+│   │   │   ├── messageStreamConsumer.worker.js  # Chat stream consumer -> PostgreSQL batch flusher
+│   │   │   ├── reactionStreamConsumer.worker.js # Reaction stream consumer -> PostgreSQL batch flusher
+│   │   │   ├── notification.worker.js           # BullMQ notification job worker
+│   │   │   └── analytics.worker.js              # BullMQ analytics job worker
 │   │   ├── app.js               # Express application setup, middlewares, routes
 │   │   ├── health.js            # Health check routes & system metrics
 │   │   ├── server.js            # HTTP + Socket.io server bootstrapper

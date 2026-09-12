@@ -1,26 +1,96 @@
 @import "tailwindcss";
 
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --bg-canvas: #08090c;
+  --bg-surface-0: #0e0f14;
+  --bg-surface-1: #12141a;
+  --bg-surface-2: #171922;
+  --bg-surface-3: #1e212d;
+  --bg-surface-elevated: #252836;
+  
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-medium: rgba(255, 255, 255, 0.10);
+  --border-highlight: rgba(255, 255, 255, 0.18);
+  
+  --text-primary: #f2f3f5;
+  --text-secondary: #949ba4;
+  --text-muted: #6d737f;
+  
+  --accent-blurple: #5865f2;
+  --accent-blurple-hover: #4752c4;
+  --status-online: #23a55a;
+  --status-speaking: #23a55a;
+  --status-dnd: #f23f43;
+  --status-idle: #f0b232;
+  
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Monospace font for telemetry, timestamps & metrics */
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Discord-Style Hairline Surface */
+.surface-panel {
+  background-color: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.03);
+}
+
+.surface-stage {
+  background-color: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+}
+
+.surface-card {
+  background-color: var(--bg-surface-3);
+  border: 1px solid var(--border-medium);
+}
+
+/* Custom Studio Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Active Speaker Acoustic Halo Pulse */
+@keyframes acousticPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(35, 165, 90, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(35, 165, 90, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(35, 165, 90, 0);
+  }
+}
+
+.speaking-halo {
+  border-color: #23a55a !important;
+  box-shadow: 0 0 18px rgba(35, 165, 90, 0.4), inset 0 0 12px rgba(35, 165, 90, 0.15) !important;
+  animation: acousticPulse 2s infinite var(--ease-spring);
 }

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import "./globals.css"; // This line is essential to load your Tailwind styles
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Chat App",
-  description: "A real-time chat application",
+  title: "Demo Discord — Real-Time Voice & Chat",
+  description: "High-throughput distributed chat and Mediasoup SFU WebRTC voice stage",
 };
 
 export default function RootLayout({
@@ -12,13 +12,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      {/* 
-        The 'font-sans' class applies the default sans-serif font family defined in your Tailwind config.
-        'bg-gray-900' and 'text-gray-100' set a default dark theme for the whole app,
-        preventing a white flash on initial load.
-      */}
-      <body className="font-sans bg-gray-900 text-gray-100">
+    <html lang="en" className="dark">
+      <body className="font-sans bg-[#08090C] text-[#F2F3F5] antialiased min-h-screen overflow-hidden">
         {children}
       </body>
     </html>

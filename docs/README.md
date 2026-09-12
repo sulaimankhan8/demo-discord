@@ -12,6 +12,9 @@ Welcome to the comprehensive technical documentation and architectural analysis 
 | **[02. WebRTC, Media Routing & Voice/Video Deep Dive](./02_WEBRTC_AUDIO_VIDEO_DEEP_DIVE.md)** | Clear conceptual and practical explanations of STUN, TURN, ICE, SFU vs MCU vs Mesh, Mediasoup internals, SVC, Simulcast, Audio Observers, and Bandwidth Control. |
 | **[03. Real-Time Messaging & Distributed Scale](./03_REALTIME_MESSAGING_AND_DISTRIBUTED_SCALE.md)** | In-depth analysis of 64-bit Snowflake ID generation, Redis Streams ingestion pipeline, Pub/Sub clustering, Presence heartbeats, and BullMQ async queues. |
 | **[04. Engineering Approaches & Production Patterns](./04_ENGINEERING_APPROACHES_AND_PATTERNS.md)** | Architectural patterns implemented: Decoupled write pipelines, Dead Letter Queues (DLQ), Micro-batching, Viewport-based media subscriptions, and Load testing. |
+| **[05. Local Setup & Execution Guide](./05_LOCAL_SETUP_AND_RUN_GUIDE.md)** | Step-by-step instructions to configure, migrate, and run the backend, frontend, Redis, and workers locally. |
+| **[06. UI/UX Design System & Architectural Redesign](./06_UI_UX_DESIGN_SYSTEM_AND_PROPOSALS.md)** | Studio-grade design system: Obsidian dark palettes, typography hierarchy, 3-column Discord shell, acoustic voice stage, and wireframe specs. |
+| **[07. High-Load Message Reactions Architecture](./07_HIGH_LOAD_MESSAGE_REACTIONS_ARCHITECTURE.md)** | Distributed architecture specification for high-load reactions: In-memory atomic Lua toggles, 250ms sliding-window fan-out coalescing, zero-join database schemas, and sharded counters. |
 
 ---
 
@@ -35,23 +38,25 @@ flowchart TD
         AudioObserver["AudioLevelObserver (Active Speaker Detection)"]
     end
 
-    subgraph MessagingEngine["High-Throughput Messaging Engine"]
+    subgraph MessagingEngine["High-Throughput Messaging & Reaction Engine"]
         SnowflakeGen["Distributed Snowflake ID Generator"]
         RedisStream["Redis Stream ('stream:messages')"]
-        StreamWorker["Stream Consumer Worker (Micro-batching)"]
+        ReactionStream["Redis Stream ('stream:reactions')"]
+        StreamWorker["Message Consumer Worker (Micro-batching)"]
+        ReactionWorker["Reaction Consumer Worker (Micro-batching)"]
         DLQ["Dead Letter Queue (dlq:consumer:bad_messages)"]
     end
 
     subgraph StateAndStorage["Storage & Distributed State"]
-        RedisCluster["Redis (PubSub + Presence + RateLimiter + Stream)"]
+        RedisCluster["Redis (PubSub + Presence + Reaction Hashes/Sets)"]
         PostgresDB["PostgreSQL (Drizzle ORM)"]
         BullMQQueues["BullMQ (Analytics & Notification Queues)"]
     end
 
     %% Client Interactions
-    BrowserA <==>|WebSocket Signaling + Chat| Gateway
-    BrowserB <==>|WebSocket Signaling + Chat| Gateway
-    BrowserN <==>|WebSocket Signaling + Chat| Gateway
+    BrowserA <==>|WebSocket Signaling + Chat + Reactions| Gateway
+    BrowserB <==>|WebSocket Signaling + Chat + Reactions| Gateway
+    BrowserN <==>|WebSocket Signaling + Chat + Reactions| Gateway
 
     BrowserA <==>|WebRTC RTP / SRTP Media Streams| WorkerPool
     BrowserB <==>|WebRTC RTP / SRTP Media Streams| WorkerPool
@@ -65,8 +70,11 @@ flowchart TD
     %% Chat pipeline
     Gateway -->|Generate Sortable ID| SnowflakeGen
     Gateway -->|XADD Message Payload| RedisStream
+    Gateway -->|XADD Reaction Action| ReactionStream
     RedisStream -->|XREADGROUP Batch Ingestion| StreamWorker
+    ReactionStream -->|XREADGROUP Batch Ingestion| ReactionWorker
     StreamWorker -->|Bulk Insert via Drizzle| PostgresDB
+    ReactionWorker -->|Bulk UPSERT Counts & Audit| PostgresDB
     StreamWorker -->|Failed Payloads| DLQ
     Gateway <-->|Pub/Sub Socket Adapter & Presence| RedisCluster
     Gateway -->|Enqueue Jobs| BullMQQueues

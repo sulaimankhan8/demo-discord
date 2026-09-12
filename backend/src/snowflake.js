@@ -7,25 +7,27 @@ const WORKER_SHIFT = 12n;
 const MAX_SEQUENCE = 4095n;
 
 class Snowflake {
-  constructor({ datacenterId, workerId }) {
-    this.datacenterId = BigInt(datacenterId);
+  constructor({ datacenterId = 1, workerId } = {}) {
+    this.datacenterId = BigInt(datacenterId) & 31n;
     
-    // Generate a unique worker ID using hostname + PID
-    const hostname = os.hostname();
-    const pid = process.pid;
-    
-    // Create a hash from hostname
-    let hash = 0;
-    for (let i = 0; i < hostname.length; i++) {
-      hash = ((hash << 5) - hash) + hostname.charCodeAt(i);
-      hash = hash & hash;
+    if (workerId !== undefined && workerId !== null && !isNaN(Number(workerId))) {
+      this.workerId = BigInt(workerId) & 31n;
+    } else {
+      // Generate a fallback worker ID using hostname + PID
+      const hostname = os.hostname();
+      const pid = process.pid;
+      
+      let hash = 0;
+      for (let i = 0; i < hostname.length; i++) {
+        hash = ((hash << 5) - hash) + hostname.charCodeAt(i);
+        hash = hash & hash;
+      }
+      
+      const uniqueWorkerId = Math.abs((hash + pid) % 32);
+      this.workerId = BigInt(uniqueWorkerId);
     }
     
-    // Combine hostname hash and PID to create a unique worker ID (0-31)
-    const uniqueWorkerId = Math.abs((hash + pid) % 32);
-    this.workerId = BigInt(uniqueWorkerId);
-    
-    console.log(`[SNOWFLAKE] datacenterId=${datacenterId} workerId=${uniqueWorkerId} hostname=${hostname} pid=${pid}`);
+    console.log(`[SNOWFLAKE] datacenterId=${this.datacenterId} workerId=${this.workerId} pid=${process.pid}`);
     
     this.lastTimestamp = 0n;
     this.sequence = 0n;
@@ -35,18 +37,26 @@ class Snowflake {
     return BigInt(Date.now());
   }
 
+  waitNextMillis(lastTimestamp) {
+    let timestamp = this.now();
+    while (timestamp <= lastTimestamp) {
+      timestamp = this.now();
+    }
+    return timestamp;
+  }
+
   generate() {
     let timestamp = this.now();
 
+    // Clock moved backwards, wait until it catches up
     if (timestamp < this.lastTimestamp) {
-      timestamp = this.lastTimestamp;
+      timestamp = this.waitNextMillis(this.lastTimestamp);
     }
 
     if (timestamp === this.lastTimestamp) {
       this.sequence = (this.sequence + 1n) & MAX_SEQUENCE;
       if (this.sequence === 0n) {
-        timestamp = this.lastTimestamp + 1n;
-        this.sequence = 0n;
+        timestamp = this.waitNextMillis(this.lastTimestamp);
       }
     } else {
       this.sequence = 0n;
