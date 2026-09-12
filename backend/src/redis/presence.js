@@ -133,34 +133,32 @@ export async function getOnlineUsers() {
 
 
 
-export async function refreshPresence(
-  user
-) {
-  await redis
-    .multi()
-    .set(
-      PresenceKeys.user(user.userId),
-      JSON.stringify({
-        userId: user.userId,
-        username: user.username,
-        status: "online",
-      }),
-      "EX",
-      PRESENCE_TTL
-    )
-    .expire(
-      PresenceKeys.socket(
-        user.socketId
-      ),
-      PRESENCE_TTL * 2
-    )
-    .exec();
+export async function refreshPresence(user) {
+  try {
+    await redis
+      .multi()
+      .set(
+        PresenceKeys.user(user.userId),
+        JSON.stringify({
+          userId: user.userId,
+          username: user.username,
+          status: "online",
+        }),
+        "EX",
+        PRESENCE_TTL
+      )
+      .expire(
+        PresenceKeys.socket(user.socketId),
+        PRESENCE_TTL * 2
+      )
+      .exec();
 
     await redis.expire(
-  PresenceKeys.sockets(
-    user.userId
-  ),
-  PRESENCE_TTL * 2
-);
+      PresenceKeys.sockets(user.userId),
+      PRESENCE_TTL * 2
+    );
+  } catch (err) {
+    console.error('[PRESENCE] Refresh failed:', err);
+  }
 }
 

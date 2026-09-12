@@ -4,9 +4,10 @@ import { initSocket } from "./socket.js";
 import { ENV } from "./utils/env.js";
 import { initMediasoup } from "./voice/mediasoup.js";
 import "./events/index.js";
+import { setupMessageStream } from "./workers/messageStreamSetup.js";
 
 const server = http.createServer(app);
-
+ await setupMessageStream
 await initMediasoup();
 initSocket(server);
 

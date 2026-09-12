@@ -28,6 +28,16 @@ scenarios:
             userId: "{{ userId }}"
             username: "{{ username }}"
 
+      - emit:
+          channel: send-message
+          data:
+            userId: "{{ userId }}"
+            username: "{{ username }}"
+            content: "load-test"
+          acknowledge:
+            match:
+              ok: true
+
       - loop:
 
           - emit:
@@ -36,10 +46,12 @@ scenarios:
                 userId: "{{ userId }}"
                 username: "{{ username }}"
                 content: "load-test"
-            
+              acknowledge:
+                match:
+                  ok: true
+
           - think: 0.05
 
         count: 1000
-
 
         # https://demo-discord.duckdns.org    

@@ -23,37 +23,31 @@
 //1.burger
 //fries etc
 
+const menu = {
+    1: {
+        item: "burger",
+        price: 50,
+        time: 5
+    },
+    2: {
+        item: "cola",
+        price: 5,
+        time: 1
+    },
+    3: {
+        item: "fires",
+        price: 15,
+        time: 5
+    },
+}
 
+let stock = 5;
 
-// const menu = {
-//     1: {
-//         item: "burger",
-//         price: 50,
-//         time: 5
-//     },
-//     2: {
-//         item: "cola",
-//         price: 5,
-//         time: 1
-//     },
-//     3: {
-//         item: "fires",
-//         price: 15,
-//         time: 5
-//     },
-// }
-
-// let stock = 5;
 // function orderFood(item) {
-
 //     console.log(item);
-
 //     const foodItem = new Promise((resolve, reject) => {
-
-
 //         setTimeout(() => {
 //             if (stock > 0) {
-
 //                 resolve(item);
 //             } else {
 //                 reject("refund ,no stock avalible")
@@ -61,7 +55,6 @@
 //         }, 1000);
 //     });
 //     console.log(foodItem);
-
 //     return foodItem
 //         .then(mes => { console.log(`your ${mes.item}:${mes.price}`); return mes; })
 //         .then((mes1) => { console.log( `your ${mes1.item} is  being packed`); return mes1 })
@@ -69,60 +62,89 @@
 //         .catch(err => console.log(err))// for error handling
 //         .finally(() => { console.log("have a good day"); stock--; console.log(stock); });// for clean up
 // }
+
+// function Token(item){
+//    return new Promise((resolve, reject) => {
+//         setTimeout(() => {
+//             if (stock > 0) {
+//                 resolve(item);
+//             } else {
+//                 reject("refund ,no stock avalible")
+//             }
+//         }, 1000);
+//     });
+// }
+// async function orderFood(item){
+//     try{
+//         console.log(item);
+
+//         const mes= await Token(item);
+
+//         console.log(`your ${mes.item}:${mes.price}`);
+//         console.log( `your ${mes.item} is  being packed`);
+//         console.log(`It takes ${mes.time}`) ;
+//         stock--;
+//         console.log(stock);
+
+//     }catch(error){
+//         console.log(error);
+//     }finally{
+//         console.log("have a good day");
+//     }
+// }
+
 // const s=orderFood(menu[1]);
-// console.log(s);
+// const p=orderFood(menu[2]);
+// console.log(s,p);
 
 
-
-const name= "namrita";
-
-/*name={
-0:"n",
-1:"a",
-2:"m",
-3:"r",
-4:"i",
-5:"t",
-6:"a",
-}*/
-// let r="";
-// let n=name.length;
-// for(let i=0;i<n;i++){
-//     r= r +name[n-i-1];
+// function orderCoffey(){
+//     return new Promise((resolve)=>{
+//         setTimeout(() => {
+//             console.log("order coffee")
+//             resolve();
+//         }, 3000);
+//     }).then(()=>{
+//          return new Promise((resolve)=>{ 
+//            setTimeout(() => {
+//              console.log("pay for coffee");
+//              resolve();
+//            }, 3000);})
+//     })
+//     .then(()=>{
+//         return new Promise((resolve)=>{
+//            setTimeout(() => {
+            
+//              console.log("drink coffee");
+//              resolve();
+//            }, 3000);})
+//     })
+//     .then(()=>{
+        
+//            setTimeout(() => {
+//              console.log("enjoy");
+//            }, 3000);})
+    
 // }
 
-// console.log(name,r);
-
-// if(name===r){
-//     console.log("p");
-// }else{
-//     console.log("n");
-// }
-
-// const n=5;
-// let prim=true;
-// for(let i=2;i<n;i++){
-//     if(n%i === 0){
-//         prim=false;
-//         break;
-//     }
-//     else{
-//         continue;
-//     }
-// }
-
-// console.log(prim);
-
-const arr=["oo","pp","kk"];
-s="ooppkk";
+function wait(){
+    return new Promise((resolve)=>{
+        setTimeout(resolve,3000);
+    })
+}
+async function orderCoffey() {
 
 
-for(let j=0;j<arr.length-1;j++){
-for(let i=0;i<arr.length-1;i++){
-    if(arr[i]>arr[i+1]){
-        let temp=arr[i];
-        arr[i]=arr[i+1];
-        arr[i+1]=temp;
-    }
-}}
-console.log(arr[arr.length-2]);
+    console.log("order coffee");
+    await wait();
+
+    console.log("pay for coffee");
+    await wait();
+
+    console.log("drink coffee");
+    await wait();
+
+    console.log("enjoy");
+
+}
+orderCoffey();
