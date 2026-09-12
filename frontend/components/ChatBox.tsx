@@ -32,25 +32,32 @@ type Message = {
 
 const REACTION_ICONS: Record<string, React.ReactNode> = {
   like: (
-    <svg className="w-3.5 h-3.5 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017a2 2 0 01-1.414-.586l-4.243-4.243A2 2 0 015 14.757V10a2 2 0 012-2h3.586a1 1 0 00.707-.293l2.414-2.414a2 2 0 012.828 0v0a2 2 0 01.586 1.414V10z" />
+    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M2 20h2c.55 0 1-.45 1-1v-9c0-.55-.45-1-1-1H2v11zm19.83-7.12c.11-.25.17-.52.17-.8V11c0-1.1-.9-2-2-2h-5.5l.92-4.65c.05-.22.02-.46-.08-.66-.23-.45-.52-.86-.88-1.22L14 1.7 8.59 7.11C8.21 7.49 8 8 8 8.53V19c0 1.1.9 2 2 2h8.43c.9 0 1.67-.6 1.9-1.47l2.25-8.2c.07-.27.08-.55.03-.82l-.78-3.63z" />
     </svg>
   ),
   heart: (
-    <svg className="w-3.5 h-3.5 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
     </svg>
   ),
   fire: (
-    <svg className="w-3.5 h-3.5 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" />
     </svg>
   ),
   star: (
-    <svg className="w-3.5 h-3.5 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
     </svg>
   ),
+};
+
+const EMOJI_META: Record<string, { label: string; color: string; hoverBg: string; hoverColor: string }> = {
+  like: { label: "Like", color: "#5865F2", hoverBg: "hover:bg-[#5865F2]/15", hoverColor: "hover:text-[#5865F2]" },
+  heart: { label: "Love", color: "#F23F43", hoverBg: "hover:bg-[#F23F43]/15", hoverColor: "hover:text-[#F23F43]" },
+  fire: { label: "Fire", color: "#FF7B00", hoverBg: "hover:bg-[#FF7B00]/15", hoverColor: "hover:text-[#FF7B00]" },
+  star: { label: "Star", color: "#FEE75C", hoverBg: "hover:bg-[#FEE75C]/15", hoverColor: "hover:text-[#FEE75C]" },
 };
 
 const AVAILABLE_EMOJIS = ["like", "heart", "fire", "star"];
@@ -542,36 +549,48 @@ export default function ChatBox() {
                     {/* Reaction Badges */}
                     {m.reactions && m.reactions.length > 0 && (
                       <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                        {m.reactions.map((r) => (
-                          <button
-                            key={r.emoji}
-                            onClick={() => handleToggleReaction(m.snowflake, r.emoji)}
-                            className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono transition cursor-pointer border ${
-                              r.me
-                                ? "bg-[#5865F2]/20 border-[#5865F2]/50 text-[#5865F2]"
-                                : "bg-[#1E212D] border-white/[0.06] text-[#949BA4] hover:border-white/[0.15] hover:text-white"
-                            }`}
-                          >
-                            {REACTION_ICONS[r.emoji]}
-                            <span className="font-semibold text-[11px]">{r.count}</span>
-                          </button>
-                        ))}
+                        {m.reactions.map((r) => {
+                          const meta = EMOJI_META[r.emoji];
+                          return (
+                            <button
+                              key={r.emoji}
+                              onClick={() => handleToggleReaction(m.snowflake, r.emoji)}
+                              className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-mono transition-all duration-150 cursor-pointer border ${
+                                r.me
+                                  ? "bg-[#5865F2]/20 border-[#5865F2]/50 text-white shadow-sm"
+                                  : "bg-[#1E212D] border-white/[0.06] text-[#949BA4] hover:border-white/[0.18] hover:text-white"
+                              }`}
+                            >
+                              <span style={{ color: r.me ? meta?.color : undefined }} className="shrink-0 flex items-center">
+                                {REACTION_ICONS[r.emoji]}
+                              </span>
+                              <span className="font-semibold text-[11px]">{r.count}</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
 
                   {/* Hover Quick Action Toolbar */}
-                  <div className="absolute right-3 -top-3 hidden group-hover:flex items-center bg-[#1E212D] border border-white/[0.08] rounded shadow-lg px-1 py-0.5 z-10 transition">
-                    {AVAILABLE_EMOJIS.map((emoji) => (
-                      <button
-                        key={emoji}
-                        onClick={() => handleToggleReaction(m.snowflake, emoji)}
-                        title={`React with ${emoji}`}
-                        className="p-1.5 rounded hover:bg-white/[0.08] text-[#949BA4] hover:text-white transition cursor-pointer"
-                      >
-                        {REACTION_ICONS[emoji]}
-                      </button>
-                    ))}
+                  <div className="absolute right-3 -top-3.5 hidden group-hover:flex items-center bg-[#1E212D]/95 border border-white/[0.1] rounded-lg shadow-2xl px-1 py-0.5 z-10 gap-0.5 backdrop-blur-md">
+                    {AVAILABLE_EMOJIS.map((emoji) => {
+                      const meta = EMOJI_META[emoji];
+                      return (
+                        <div key={emoji} className="relative group/btn">
+                          <button
+                            onClick={() => handleToggleReaction(m.snowflake, emoji)}
+                            className={`p-1.5 rounded-md text-[#949BA4] ${meta.hoverColor} ${meta.hoverBg} hover:scale-125 transition-all duration-150 cursor-pointer flex items-center justify-center`}
+                          >
+                            {REACTION_ICONS[emoji]}
+                          </button>
+                          {/* Sleek Dark Tooltip */}
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-[#0E0F14] border border-white/[0.12] rounded text-[10px] font-medium text-white tracking-wide whitespace-nowrap opacity-0 group-hover/btn:opacity-100 pointer-events-none transition-opacity duration-150 shadow-lg">
+                            {meta.label}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
