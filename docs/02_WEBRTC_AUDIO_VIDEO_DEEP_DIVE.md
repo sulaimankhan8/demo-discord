@@ -1,60 +1,224 @@
-# 02. WebRTC, Media Routing & Voice/Video Deep Dive
+# 02. WebRTC, NAT Traversal & Media Routing Deep Dive
 
-This document is an in-depth technical analysis explaining WebRTC concepts, networking challenges (NAT/Firewalls), network protocols (STUN, TURN, ICE), Media Server topologies (Mesh vs. MCU vs. SFU), and advanced video optimization strategies (SVC vs. Simulcast, Active Speaker Routing).
+This document is an exhaustive, foundational guide and technical reference explaining **WebRTC from first principles**, **NAT (Network Address Translation)**, **Firewall Traversal (STUN, TURN, ICE)**, **Signaling & SDP**, **Media Protocols (RTP, SRTP, RTCP)**, **Multi-Party Topologies (Mesh vs. MCU vs. SFU)**, and the **Mediasoup Multi-Core SFU Engine** implemented in **Demo Discord**.
 
 ---
 
-## 🌐 1. WebRTC & NAT Traversal (STUN, TURN, ICE)
+## 🌐 1. What is WebRTC? (First Principles)
 
-### What is the Problem WebRTC Solves?
-WebRTC (Web Real-Time Communication) is an open standard that allows web browsers and mobile applications to exchange real-time audio, video, and arbitrary binary data with sub-second latency (usually < 100-200ms) directly over UDP/TCP.
+### Core Mission
+**WebRTC (Web Real-Time Communication)** is an open-source standard and suite of protocols designed to enable web browsers and mobile applications to exchange real-time **audio, video, and arbitrary binary data** with ultra-low latency (typically **< 50ms – 150ms**) without requiring external plugins or third-party software.
 
-However, devices on the modern internet are almost never directly connected with public IP addresses. They reside behind **NATs (Network Address Translation)** and firewalls (such as home WiFi routers or cellular carrier NATs).
+### The 3 Core Browser JavaScript APIs:
+1. **`MediaDevices.getUserMedia()` / `getDisplayMedia()`**: Captures raw audio from microphones, video from webcams, or screenshares into browser `MediaStream` objects.
+2. **`RTCPeerConnection`**: The core WebRTC engine. Handles audio/video codec negotiation, network path resolution (ICE), encryption key derivation (DTLS/SRTP), packetization, jitter buffering, packet loss concealment, and hardware-accelerated video rendering.
+3. **`RTCDataChannel`**: Allows bidirectional, peer-to-peer arbitrary data transfer (binary or text) over SCTP with configurable reliability (TCP-like guaranteed delivery or UDP-like unordered fast streaming).
+
+---
+
+## 🧱 2. Why WebRTC Uses UDP Instead of TCP
+
+Standard web traffic (HTTP, WebSocket, HTTPS) runs over **TCP (Transmission Control Protocol)**. WebRTC media streaming runs over **UDP (User Datagram Protocol)**.
 
 ```
-[Client A (192.168.1.5)] ---> [Home Router (Public IP: 203.0.113.10)] ---> INTERNET
-[Client B (192.168.0.22)] ---> [Office Router (Public IP: 198.51.100.4)] ---> INTERNET
+       TCP (Reliable, High Latency)                       UDP (Unreliable, Real-Time)
+   Client                  Server                     Client                  Server
+     |                       |                          |                       |
+     |---- Packet 1 -------->| (Received)               |---- Packet 1 -------->| (Received)
+     |---- Packet 2 (LOST) ->x (Lost in transit)        |---- Packet 2 (LOST) ->x (Lost, IGNORED)
+     |---- Packet 3 -------->| (Held in buffer!)        |---- Packet 3 -------->| (Played instantly!)
+     |                       |                          |                       |
+     |<--- NACK / Retrans ---| (Wait 100ms)             |                       |
+     |---- Packet 2 Resent ->| (Now plays 1,2,3)        |                       |
+   RESULT: Glitch & 200ms audio freeze                RESULT: Seamless 0ms lag audio
 ```
 
-If Client A tells Client B: *"Send video packets to `192.168.1.5:4000`"*, Client B will fail because `192.168.1.5` is a private, non-routable local network address.
+### The Concept: Head-of-Line (HoL) Blocking
+- **TCP guarantees that every single packet is delivered in exact order**. If Packet 2 is dropped by network congestion, TCP **halts all subsequent packets (3, 4, 5)** in the receive queue until Packet 2 is retransmitted and acknowledged.
+- In live voice/video, **old data is useless data**. If a voice syllable from 200ms ago was dropped, users would rather hear a tiny masked glitch than have the entire conversation freeze for a quarter of a second.
+- **UDP does not retransmit lost packets by default** and does not block new packets. WebRTC layers its own smart error-resilience algorithms on top of UDP (such as Opus Forward Error Correction and NACKs).
 
 ---
 
-### What is STUN? (Session Traversal Utilities for NAT)
-**STUN** is a lightweight client-server protocol (RFC 5389).
-- **Purpose**: It allows a client behind a NAT to discover its own **Public IP Address** and **Public Port** mapped by its router.
-- **How it works**:
-  1. Client sends a STUN Binding Request packet to a public STUN server (e.g., `stun:stun.l.google.com:19302`).
-  2. The STUN server looks at the packet's source IP and port in the UDP header and replies: *"Hey, from the outside world, your address is `203.0.113.10:54321`"*.
-  3. The client now knows its public reflexive candidate address to share with peers.
-
-> **Analogy**: You are inside a hotel room with an internal extension. You call the front desk to ask: *"What external phone number and extension do outsiders see when I call out?"*
-
----
-
-### What is TURN? (Traversal Using Relays around NAT)
-**TURN** is an extension of STUN (RFC 5766) used when direct peer-to-peer connection is impossible.
-- **Why STUN is not always enough**: When both clients are behind **Symmetric NATs** (common in corporate networks and mobile 4G/5G carriers), the NAT changes the external port for every different destination host. In this case, direct NAT hole punching fails.
-- **How TURN works**: A TURN server acts as a public media relay. Both peers stream their audio/video packets to the TURN server, which forwards them to the other peer.
-
----
-
-### What is ICE? (Interactive Connectivity Establishment)
-**ICE** (RFC 8445) is the overarching framework used by WebRTC to find the best possible path to connect two endpoints.
-- ICE collects all possible candidate network paths:
-  1. **Host Candidates**: Local network IP (`192.168.x.x`).
-  2. **Server Reflexive (srflx) Candidates**: Public IP and port discovered via **STUN**.
-  3. **Relay Candidates**: Relay IP and port allocated on a **TURN** server.
-- ICE tests connectivity across all candidate pairs and selects the fastest, lowest-latency path (prioritizing direct UDP > direct TCP > TURN relay).
-
----
-
-## 🏛️ 2. Topologies: Mesh vs. MCU vs. SFU
-
-When scaling real-time audio and video to groups of users (e.g., 5 to 50+ people in a voice/video channel), network topology is the single most critical architectural choice.
+## 🛡️ 3. The WebRTC Network Protocol Stack
 
 ```
-       1. MESH (P2P)                  2. MCU (Central Mixer)             3. SFU (Selective Forwarder)
+ +---------------------------------------------------------+
+ |           WebRTC Application (Next.js / React)          |
+ +---------------------------------------------------------+
+ |       Voice / Video Tracks       |      DataChannels    |
+ +----------------------------------+----------------------+
+ |           SRTP / SRTCP           |         SCTP         |
+ +----------------------------------+----------------------+
+ |                           DTLS                          |
+ +---------------------------------------------------------+
+ |                     ICE / STUN / TURN                   |
+ +---------------------------------------------------------+
+ |                            UDP                          |
+ +---------------------------------------------------------+
+ |                             IP                          |
+ +---------------------------------------------------------+
+```
+
+1. **IP (Internet Protocol)**: Delivers packets from source IP to destination IP.
+2. **UDP (User Datagram Protocol)**: Unreliable, connectionless, low-overhead transport.
+3. **ICE / STUN / TURN**: Discovers public IP paths and bypasses NAT firewalls.
+4. **DTLS (Datagram Transport Layer Security)**: TLS over datagrams. Generates cryptographic keys and authenticates the connection.
+5. **SRTP (Secure Real-time Transport Protocol)**: Encrypts raw audio (Opus) and video (VP8/VP9/H.264/AV1) payloads using AES-128/256 cipher keys generated by DTLS.
+6. **SCTP (Stream Control Transmission Protocol)**: Transports DataChannels on top of DTLS.
+
+---
+
+## 🌍 4. What is NAT? (Network Address Translation)
+
+### Why Does NAT Exist?
+When IPv4 was created in 1981, it allocated $2^{32} \approx 4.3 \text{ billion}$ IP addresses. As billions of phones, laptops, and IoT devices came online, IPv4 addresses were exhausted.
+
+To solve this, **RFC 1918** designated three private IP ranges for local area networks (LANs):
+- `10.0.0.0` – `10.255.255.255` (Class A)
+- `172.16.0.0` – `172.31.255.255` (Class B)
+- `192.168.0.0` – `192.168.255.255` (Class C)
+
+**Private IPs are non-routable on the public internet**. Millions of homes and offices share the exact same `192.168.1.x` addresses.
+
+### How NAT Works (The Router Translation Table)
+Your home or office router has **one single Public IP address** provided by your ISP. The router acts as a translator between your internal devices and the outside internet:
+
+```
+[Laptop: 192.168.1.5:54321]  --+
+                               |--> [Home Router (Public IP: 203.0.113.10)] ---> Internet (Web Server: 93.184.216.34:443)
+[Phone:  192.168.1.9:54321]  --+
+```
+
+When your laptop connects to a website, the router modifies the IP packet headers:
+1. Replaces `192.168.1.5:54321` with `203.0.113.10:49152`.
+2. Stores this translation in its internal **NAT State Table**:
+   | Internal Source IP:Port | External Mapped IP:Port | Destination IP:Port |
+   | :--- | :--- | :--- |
+   | `192.168.1.5:54321` | `203.0.113.10:49152` | `93.184.216.34:443` |
+3. When the web server replies to `203.0.113.10:49152`, the router checks the table and rewrites the packet destination back to `192.168.1.5:54321`.
+
+---
+
+## 🚫 5. The Core NAT Challenge for Peer-to-Peer & WebRTC
+
+In standard web browsing (Client-Server), the **client always initiates the outgoing connection**, which opens the NAT table pinhole.
+
+In real-time media (Peer-to-Peer or Client-to-SFU):
+- Client A (`192.168.1.5`) wants to receive audio from Client B (`192.168.0.22`).
+- If Client A tells Client B: *"Send packets to 192.168.1.5:40000"*, Client B's packets cannot reach Client A because `192.168.1.5` is private.
+- If Client B sends packets to Client A's public router IP (`203.0.113.10:40000`), **Client A's router immediately drops the packets** because no outgoing request was made to open that port in the NAT table!
+
+### The 4 Types of NAT (From Easiest to Hardest)
+
+```mermaid
+flowchart TD
+    subgraph Types["NAT Firewall Varieties"]
+        T1["1. Full-Cone NAT (One-to-One)<br/>Any external host can send to the mapped port once opened."]
+        T2["2. Restricted-Cone NAT (Address-Restricted)<br/>Only external hosts whose IP we sent packets to can reply."]
+        T3["3. Port-Restricted Cone NAT<br/>Only external hosts whose (IP + Port) we sent packets to can reply."]
+        T4["4. Symmetric NAT (The WebRTC Killer)<br/>Allocates a completely DIFFERENT external port for every new destination host."]
+    end
+```
+
+1. **Full-Cone NAT**: Once an internal host sends a packet out, *any* external host on the internet can send packets back to that mapped public port. (STUN hole-punching succeeds 100%).
+2. **Address-Restricted Cone NAT**: An external host can send packets to the mapped port only if the internal host has previously sent a packet to that external host's IP address.
+3. **Port-Restricted Cone NAT**: Common in home WiFi routers. An external host can send packets only if the internal host previously sent a packet to that specific IP **and** Port.
+4. **Symmetric NAT**: Used in corporate firewalls, universities, and mobile LTE/5G carrier networks. If Client A sends a packet to STUN Server X, the router maps it to Port `50001`. But when Client A sends a packet to Client B, the router assigns Port `50002`! Because the port changes dynamically, **direct peer hole punching is mathematically impossible**.
+
+---
+
+## 🛠️ 6. The NAT Traversal Toolkit: STUN, TURN & ICE
+
+To overcome NAT firewalls, WebRTC uses the **ICE framework** backed by **STUN** and **TURN** servers.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor ClientA as Client A (Behind NAT)
+    participant STUN as STUN Server (Public)
+    participant TURN as TURN Relay (Public)
+    actor ClientB as Client B (Behind Symmetric NAT)
+
+    Note over ClientA,STUN: Step 1: Discover Public IP/Port via STUN
+    ClientA->>STUN: STUN Binding Request (from 192.168.1.5:5000)
+    STUN-->>ClientA: STUN Binding Response ("Your public address is 203.0.113.10:48912")
+
+    Note over ClientA,ClientB: Step 2: Direct Hole Punching (ICE Connectivity Check)
+    ClientA->>ClientB: STUN Ping to Client B's address
+    ClientB--xClientA: BLOCKED (Symmetric NAT drops incoming packet)
+
+    Note over ClientA,TURN: Step 3: Fallback to TURN Relay
+    ClientA->>TURN: Allocate Relay Channel
+    TURN-->>ClientA: Relay Port Allocated (198.51.100.25:3478)
+    ClientA->>TURN: Send Media Packets
+    TURN->>ClientB: Forward Media Packets to Client B
+```
+
+### 1. STUN (Session Traversal Utilities for NAT - RFC 5389)
+- **Role**: A lightweight public mirror.
+- **How it works**: Client sends a UDP request to `stun.l.google.com:19302`. The STUN server inspects the packet header and returns the client's public reflexive IP and Port (`srflx` candidate).
+- **Cost & Overhead**: Extremely low (consumes almost zero CPU or bandwidth). STUN only handles the handshake, never the media stream.
+
+### 2. TURN (Traversal Using Relays around NAT - RFC 5766)
+- **Role**: The bulletproof relay fallback when symmetric NATs prevent direct connection (occurs in ~10-15% of internet connections).
+- **How it works**: Both clients establish an outgoing connection to the TURN server. The TURN server relays every audio/video packet between them.
+- **Cost & Overhead**: High bandwidth and server hosting costs because all audio/video data flows through the TURN server.
+
+### 3. ICE (Interactive Connectivity Establishment - RFC 8445)
+- **Role**: The master coordinator.
+- **ICE Candidate Types Gathered**:
+  1. `host`: Local network IP addresses (`192.168.1.5:50004`, `10.0.0.12`).
+  2. `srflx` (Server Reflexive): Public IP/Port discovered via **STUN** (`203.0.113.10:48912`).
+  3. `relay`: Public IP/Port allocated on a **TURN** server (`198.51.100.25:3478`).
+- **Connectivity Checks**: ICE tests all candidate pairs in order of priority:
+  $$\text{Host-to-Host (LAN)} \longrightarrow \text{Direct STUN Hole Punch (WAN)} \longrightarrow \text{TURN Relay}$$
+
+---
+
+## 📡 7. Signaling & SDP (Session Description Protocol)
+
+WebRTC **does not define any signaling protocol**. Applications use WebSockets, HTTP, or Socket.io to exchange metadata.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as Browser A
+    participant Sig as Socket.io Signaling Server
+    participant B as Browser B
+
+    A->>A: 1. Create RTCPeerConnection & createOffer()
+    A->>Sig: 2. emit("signal:offer", { sdp: offerSDP })
+    Sig->>B: 3. Forward Offer SDP
+    B->>B: 4. setRemoteDescription(offerSDP)
+    B->>B: 5. createAnswer()
+    B->>Sig: 6. emit("signal:answer", { sdp: answerSDP })
+    Sig->>A: 7. Forward Answer SDP
+    A->>A: 8. setRemoteDescription(answerSDP)
+    
+    par ICE Candidate Exchange
+        A->>Sig: emit("signal:ice_candidate", candidateA)
+        Sig->>B: Forward candidateA
+        B->>Sig: emit("signal:ice_candidate", candidateB)
+        Sig->>A: Forward candidateB
+    end
+```
+
+### What is in an SDP (Session Description Protocol) Packet?
+An SDP is a plain-text document specifying:
+- **Media Capabilities**: Audio (`Opus 48kHz stereo`), Video (`VP8`, `VP9`, `H.264`, `AV1`).
+- **Transport Configurations**: ICE ufrag (username fragment), ICE password, and setup roles (`actpass`, `active`, `passive`).
+- **Security Fingerprints**: SHA-256 fingerprint of the DTLS X.509 certificate used to encrypt the media.
+- **SSRCs (Synchronization Sources)**: 32-bit integer IDs uniquely identifying each media stream.
+
+---
+
+## 🏛️ 8. Multi-User Video Topologies: Mesh vs. MCU vs. SFU
+
+When streaming voice and video to groups (e.g. 5 to 50 users in a Discord channel), choosing the right server architecture is paramount.
+
+```
+       1. MESH (Pure P2P)             2. MCU (Central Mixer)             3. SFU (Selective Forwarding Unit)
     [A] <=========> [B]                     [A]       [B]                     [A]       [B]
      ^  \         /  ^                       \         /                       \         /
      |    \     /    |                        v       v                         v       v
@@ -63,130 +227,111 @@ When scaling real-time audio and video to groups of users (e.g., 5 to 50+ people
      |    /     \    |                        Re-encodes video)                 Forwards selectively)
      v  /         \  v                        ^       ^                         v       v
     [C] <=========> [D]                      /         \                       /         \
-                                           [C]       [D]                     [C]       [D]
+                                            [C]       [D]                     [C]       [D]
 ```
 
-### Topology Comparison Matrix
+### Architectural Comparison:
 
-| Feature | Mesh (Pure P2P) | MCU (Multipoint Control Unit) | SFU (Selective Forwarding Unit) *(Used in this project)* |
+| Characteristic | Mesh (Pure Peer-to-Peer) | MCU (Multipoint Control Unit) | SFU (Selective Forwarding Unit) *(Demo Discord)* |
 | :--- | :--- | :--- | :--- |
-| **Client Upload** | ❌ $O(N-1)$ — Uploads stream to *every* participant. Fails with > 4 peers. | ✅ $O(1)$ — Uploads 1 stream to server. | ✅ $O(1)$ — Uploads 1 stream to server. |
-| **Client Download** | ❌ $O(N-1)$ — Downloads separate stream from each peer. | ✅ $O(1)$ — Receives 1 single composite grid video from server. | 🟡 $O(M)$ — Downloads only visible/desired streams. |
-| **Server CPU Load** | ✅ $O(0)$ — Zero server CPU (pure client-to-client). | ❌ **Extremely High** — Server must decode, resize, compose, and re-encode video for every client. Very costly. | ✅ **Extremely Low** — Server never decodes or re-encodes video. It merely routes RTP packets at the packet level. |
-| **Video Latency** | ✅ Lowest (direct P2P). | ❌ High (added transcoding & encoding pipeline delay). | ✅ Sub-second (~50-100ms, identical to P2P). |
-| **Layout Flexibility** | 🟡 Client decides layout. | ❌ Fixed server-rendered layout for all users. | ✅ Full client flexibility (custom grids, pins, focus modes). |
-
-### Why this project uses an SFU (Mediasoup):
-Discord and modern conferencing platforms use SFUs because they combine the **low server CPU cost** of packet forwarding with the **$O(1)$ client upload efficiency** of a centralized media hub.
+| **Client Upload** | ❌ $O(N-1)$ — Uploads full video to *every* client. Fails with > 4 users. | ✅ $O(1)$ — Uploads 1 stream to server. | ✅ $O(1)$ — Uploads 1 stream to server. |
+| **Client Download** | ❌ $O(N-1)$ — Downloads separate streams from all users. | ✅ $O(1)$ — Receives 1 single combined video grid from server. | 🟡 $O(M)$ — Downloads only visible/desired streams. |
+| **Server CPU Utilization** | ✅ $O(0)$ — Zero server CPU. | ❌ **Extremely High** — Server decodes, composites, and re-encodes video for each user. | ✅ **Extremely Low** — Server never decodes or encodes video; routes raw RTP packets in C++. |
+| **End-to-End Latency** | ✅ Lowest (~50ms). | ❌ High (added transcoding pipeline delay: ~200-400ms). | ✅ Sub-second (~60-100ms, matching P2P). |
+| **UI Layout Customization** | 🟡 Client controlled. | ❌ Server forces one rigid composite video layout on everyone. | ✅ Complete client control (custom focus, stage, gallery grids). |
 
 ---
 
-## ⚡ 3. Mediasoup SFU Internals in Demo Discord
+## ⚡ 9. Mediasoup SFU Internals in Demo Discord
 
-Mediasoup is implemented across [`backend/src/voice/mediasoup.js`](file:///c:/Users/Sulaiman/Desktop/dis/backend/src/voice/mediasoup.js) and [`backend/src/voice/voice.socket.js`](file:///c:/Users/Sulaiman/Desktop/dis/backend/src/voice/voice.socket.js).
+In our project, Mediasoup v3 runs as a high-performance C++ child process managed by Node.js across [`backend/src/voice/mediasoup.js`](file:///c:/Users/Sulaiman/Desktop/dis/backend/src/voice/mediasoup.js) and [`backend/src/voice/voice.socket.js`](file:///c:/Users/Sulaiman/Desktop/dis/backend/src/voice/voice.socket.js).
 
 ```mermaid
 flowchart TD
-    subgraph MultiCore["Node.js Multi-Core Process"]
-        W0["Mediasoup Worker 0 (C++ subprocess) - RTC Ports 40000-40999"]
-        W1["Mediasoup Worker 1 (C++ subprocess) - RTC Ports 41000-41999"]
-        WN["Mediasoup Worker N (C++ subprocess) - RTC Ports 4X000-4X999"]
+    subgraph MultiCore["Multi-Core Worker Pool (Node.js + C++)"]
+        W0["Worker 0 (Core 0) • RTC Ports 40000-40999"]
+        W1["Worker 1 (Core 1) • RTC Ports 41000-41999"]
+        WN["Worker N (Core N) • RTC Ports 4X000-4X999"]
     end
 
-    subgraph RoomState["Room: 'global-voice'"]
-        Router["Mediasoup Router (Assigned to Worker via Round-Robin)"]
-        AudioObs["AudioLevelObserver (threshold: -55dB, interval: 500ms)"]
-        
-        subgraph PeerA["Peer A (Socket 1)"]
-            SendT_A["Send Transport"]
-            RecvT_A["Recv Transport"]
-            Prod_AudioA["Audio Producer"]
-            Prod_VideoA["Video Producer"]
+    subgraph ChannelRoom["Room: 'global-voice' (Assigned to Worker 0)"]
+        Router["Mediasoup Router (RTP Routing Domain)"]
+        AudioObs["AudioLevelObserver (Active Speaker Detection: -55dB)"]
+
+        subgraph Client1["Client 1 (Publisher & Subscriber)"]
+            SendT1["Send Transport (WebRtcTransport)"]
+            RecvT1["Recv Transport (WebRtcTransport)"]
+            ProdA1["Audio Producer (Mic Track)"]
+            ProdV1["Video Producer (Camera Track)"]
         end
-        
-        subgraph PeerB["Peer B (Socket 2)"]
-            SendT_B["Send Transport"]
-            RecvT_B["Recv Transport"]
-            Cons_AudioB["Consumer (A's Audio)"]
-            Cons_VideoB["Consumer (A's Video)"]
+
+        subgraph Client2["Client 2 (Subscriber)"]
+            SendT2["Send Transport"]
+            RecvT2["Recv Transport"]
+            ConsA2["Audio Consumer (Receives Client 1 Audio)"]
+            ConsV2["Video Consumer (Receives Client 1 Video)"]
         end
     end
 
     W0 --> Router
     Router --> AudioObs
-    Router --> SendT_A
-    Router --> RecvT_A
-    Router --> SendT_B
-    Router --> RecvT_B
-
-    Prod_AudioA --> Router
-    Prod_VideoA --> Router
-    Router --> Cons_AudioB
-    Router --> Cons_VideoB
-    Prod_AudioA -->|Pipe audio levels| AudioObs
+    SendT1 --> ProdA1 & ProdV1
+    ProdA1 -->|RTP Audio Packets| Router
+    ProdV1 -->|RTP Video Packets| Router
+    Router -->|Forward Audio RTP| ConsA2
+    Router -->|Forward Video RTP| ConsV2
+    ConsA2 & ConsV2 --> RecvT2
+    ProdA1 -.->|Monitor Volume| AudioObs
 ```
 
-### Key Architectural Primitives in Mediasoup:
-1. **Worker**: A separate OS subprocess running the C++ Mediasoup engine. In `mediasoup.js`, the code creates one worker per CPU core (`os.cpus().length`) with dedicated port ranges (`rtcMinPort: 40000 + i * 1000`) and automatic crash recovery (`worker.on('died')`).
-2. **Router**: An RTP routing domain within a worker (analogous to a virtual room/channel).
-3. **WebRtcTransport**: An ICE + DTLS connection representing a network pipe between a client browser and the Mediasoup worker. Each client creates two transports:
-   - **Send Transport**: Dedicated exclusively to publishing the client's own microphone and camera tracks.
-   - **Recv Transport**: Dedicated to receiving media tracks published by other participants.
-4. **Producer**: Represents an incoming audio or video track sent by a client to the SFU router.
-5. **Consumer**: Represents an outgoing audio or video track delivered from the SFU router to a client's receive transport.
+### The 5 Core Primitives of Mediasoup:
+1. **Worker**: A C++ subprocess pinned to a CPU core (`os.cpus().length`). Handles low-level UDP sockets, DTLS handshakes, and SRTP packet forwarding.
+2. **Router**: An isolated RTP routing domain (analogous to a virtual room/voice channel).
+3. **WebRtcTransport**: A bidirectional network pipe between a browser and the Mediasoup worker. Each client creates two transports:
+   - **Send Transport**: Used exclusively to publish microphone and camera tracks.
+   - **Recv Transport**: Used to subscribe to audio/video tracks published by peers.
+4. **Producer**: Represents an incoming media track pushed from a browser to the server.
+5. **Consumer**: Represents an outgoing media track delivered from the server to a client's receive transport.
 
 ---
 
-## 🎥 4. SVC (Scalable Video Coding) vs. Simulcast
+## 🎥 10. Bandwidth Adaptation: SVC vs. Simulcast
 
-In a group video call, different clients have wildly different network speeds and screen sizes:
-- A user on a 4K monitor needs high-definition (1080p).
-- A mobile user on a 4G connection needs lower resolution (360p) to conserve bandwidth.
-- A user viewing 16 small video tiles in a grid only needs low-resolution thumbnails.
-
-How do we solve this without having the server transcode the video? We use **SVC** or **Simulcast**.
+In group video calls, participants have different network speeds and display viewport sizes.
 
 ```
-                       SIMULCAST (3 Independent Streams)
-[Client Camera] ----> Encoder 1: 1080p @ 2.5 Mbps (High)
-                ----> Encoder 2: 720p  @ 1.0 Mbps (Medium)
-                ----> Encoder 3: 360p  @ 300 Kbps (Low)
-                                     |
-                                     v
-                           [ Mediasoup SFU ]
-                          /        |        \
-                         /         |         \
-   (Sends High to Speaker) (Sends Med to Grid) (Sends Low to Mobile)
+                  SIMULCAST (3 Independent Bitstreams)
+[Client Camera] ----> Encoder High: 1080p @ 2.5 Mbps
+                ----> Encoder Med:  720p  @ 1.0 Mbps
+                ----> Encoder Low:  360p  @ 300 Kbps
+                                  |
+                                  v
+                        [ Mediasoup SFU ]
+                       /        |        \
+    (Sends High to Speaker) (Sends Med to Grid) (Sends Low to Mobile)
 
 
-                 SCALABLE VIDEO CODING - SVC (Single Layered Stream)
-[Client Camera] ----> [ Spatial Layer 2 (High detail delta) ]
-                ----> [ Spatial Layer 1 (Medium detail delta) ]
-                ----> [ Spatial Layer 0 (Base Layer 360p) ]
-                                     |
-                                     v
-                           [ Mediasoup SFU ]
-                          /        |        \
-                         /         |         \
-           (Forwards L0+L1+L2)  (Forwards L0+L1)  (Forwards L0 only)
+             SCALABLE VIDEO CODING - SVC (1 Layered Bitstream)
+[Client Camera] ----> [ Spatial Layer 2 (1080p Enhancement Delta) ]
+                ----> [ Spatial Layer 1 (720p Enhancement Delta) ]
+                ----> [ Spatial Layer 0 (360p Base Layer) ]
+                                  |
+                                  v
+                        [ Mediasoup SFU ]
+                       /        |        \
+        (Forwards L0+L1+L2)  (Forwards L0+L1)  (Forwards L0 only)
 ```
 
-### What is SVC (Scalable Video Coding)?
-SVC (e.g., in codecs like VP9 or AV1) encodes video into a single structured bitstream containing multiple **Spatial Layers** (resolutions) and **Temporal Layers** (frame rates):
-- **Base Layer (Spatial 0, Temporal 0)**: Minimal resolution and frame rate (e.g., 360p @ 15fps). Anyone can decode this.
-- **Enhancement Layer 1 (Spatial 1, Temporal 1)**: Adds resolution details (e.g., 720p @ 30fps).
-- **Enhancement Layer 2 (Spatial 2, Temporal 2)**: Adds full HD details (e.g., 1080p @ 60fps).
-
-### Why do we use SVC / Simulcast in Demo Discord?
-In [`voice.socket.js` (Lines 619-632)](file:///c:/Users/Sulaiman/Desktop/dis/backend/src/voice/voice.socket.js#L619-L632), the SFU dynamically tells the consumer which layers to forward based on active speaking and visibility:
+### Dynamic Layer Switching in Demo Discord:
+In [`voice.socket.js`](file:///c:/Users/Sulaiman/Desktop/dis/backend/src/voice/voice.socket.js), the SFU dynamically sets layer forwarding based on user visibility and speaking state:
 
 ```javascript
 if (consumer.type === "simulcast" || consumer.type === "svc") {
   let spatialLayer = 0;
 
-  if (isSpeaker) spatialLayer = 2;       // HD for active speaker
-  else if (isVisible) spatialLayer = 1;  // Medium for visible tile
-  else spatialLayer = 0;                 // Lowest for background
+  if (isSpeaker) spatialLayer = 2;       // 1080p 60fps for active speaker
+  else if (isVisible) spatialLayer = 1;  // 720p 30fps for visible grid tile
+  else spatialLayer = 0;                 // 360p 15fps for background / small tile
 
   consumer.setPreferredLayers({
     spatialLayer,
@@ -195,30 +340,22 @@ if (consumer.type === "simulcast" || consumer.type === "svc") {
 }
 ```
 
-**Benefits**:
-1. **Zero Server Transcoding**: The server only strips or passes RTP packets belonging to specific layer IDs.
-2. **Dynamic Bandwidth Adaptation**: If the network drops packets, the SFU instantly drops to `spatialLayer: 0` without breaking the video stream.
-
 ---
 
-## 🎙️ 5. Active Speaker Detection & Dynamic Consumer Management
-
-In large video rooms (e.g., 20+ users), forwarding 20 video streams simultaneously will crash the browser and overwhelm network bandwidth. The codebase implements an optimization pipeline:
+## 🎙️ 11. Real-Time Hardware Audio Observer & Viewport Pausing
 
 ### 1. Hardware AudioLevelObserver
-Configured in [`voice.socket.js`](file:///c:/Users/Sulaiman/Desktop/dis/backend/src/voice/voice.socket.js#L164-L195):
-- Mediasoup monitors audio RTP volume levels in C++ without decoding audio.
-- Triggers `volumes` events when audio exceeds `-55 dB`.
-- Emits `voice:activeSpeaker` over WebSocket to all clients.
+Configured in [`voice.socket.js`](file:///c:/Users/Sulaiman/Desktop/dis/backend/src/voice/voice.socket.js):
+- Mediasoup monitors audio RTP volume levels directly in C++ without decoding audio.
+- When an audio stream exceeds `-55 dB`, it fires a `volumes` event.
+- The server broadcasts `voice:activeSpeaker` over WebSocket, triggering the **emerald acoustic pulse ring** in the frontend UI.
 
-### 2. Viewport-Based Selective Subscription
-- **Focus Mode**: Limits video subscriptions to the top 6 users (including active speaker). Sets max bitrate to 2.0 Mbps.
-- **Gallery Mode**: Limits video subscriptions to 16 users. Sets max bitrate to 800 Kbps.
-- Users outside the current visible page have their video consumers **paused** (`consumer.pause()`), saving 100% of video bandwidth for off-screen peers.
+### 2. Viewport-Based Video Subscription
+- **Focus Mode**: Subscribes to the active speaker + 5 prominent tiles (max bitrate 2.0 Mbps).
+- **Gallery Mode**: Subscribes to up to 16 video tiles (max bitrate 800 Kbps).
+- **Off-Screen Pausing**: Any user not visible on the current page has their video consumer paused (`consumer.pause()`), saving 100% of video bandwidth for off-screen peers.
 
-### 3. Staggered Consumer Resumption & Keyframe Control
-When switching pages or promoting a speaker, resuming multiple video consumers at once causes a **thundering herd** of keyframe requests (which spikes CPU and packet loss).
-
-In [`voice.socket.js` (Lines 608-643)](file:///c:/Users/Sulaiman/Desktop/dis/backend/src/voice/voice.socket.js#L608-L643):
-- Resumption is staggered with an incremental timer (`resumeIndex * 15ms`).
-- Keyframes are throttled (`Date.now() - consumer.appData.lastKeyframe > 3000`) to prevent packet bursts.
+### 3. Staggered Resumption & Keyframe Throttling
+When switching between pages, resuming 16 video consumers at once would cause a massive spike in keyframe requests (PLI/FIR) that could congest the network.
+- Consumer resumption is staggered with a 15ms offset (`resumeIndex * 15ms`).
+- Keyframes are rate-limited (`Date.now() - lastKeyframe > 3000`) to guarantee smooth 60 FPS performance.
