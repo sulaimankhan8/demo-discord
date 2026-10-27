@@ -15,6 +15,7 @@ Welcome to the comprehensive technical documentation and architectural analysis 
 | **[05. Local Setup & Execution Guide](./05_LOCAL_SETUP_AND_RUN_GUIDE.md)** | Step-by-step instructions to configure, migrate, and run the backend, frontend, Redis, and workers locally. |
 | **[06. UI/UX Design System & Architectural Redesign](./06_UI_UX_DESIGN_SYSTEM_AND_PROPOSALS.md)** | Studio-grade design system: Obsidian dark palettes, typography hierarchy, 3-column Discord shell, acoustic voice stage, and wireframe specs. |
 | **[07. High-Load Message Reactions Architecture](./07_HIGH_LOAD_MESSAGE_REACTIONS_ARCHITECTURE.md)** | Distributed architecture specification for high-load reactions: In-memory atomic Lua toggles, 250ms sliding-window fan-out coalescing, zero-join database schemas, and sharded counters. |
+| **[08. Offline BLE Mesh Implementation Plan](./08_OFFLINE_BLE_MESH_IMPLEMENTATION_PLAN.md)** | Plan for a third, internet-free text channel: Capacitor wrap, native BLE link plugin, TypeScript mesh router (flooding, TTL, dedup, store-and-forward), packet format, keys and encryption, phased rollout. |
 
 ---
 

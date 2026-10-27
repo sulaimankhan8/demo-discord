@@ -4,14 +4,17 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { soundFx } from "@/lib/soundFx";
+import MeshIcon from "@/components/icons/MeshIcon";
 
 interface AppShellProps {
   children: React.ReactNode;
   activeChannel?: string;
   onlineCount?: number;
+  /** Lets the page open without a login (used by the offline mesh). Off by default. */
+  allowOffline?: boolean;
 }
 
-export default function AppShell({ children, activeChannel = "general-chat", onlineCount = 1 }: AppShellProps) {
+export default function AppShell({ children, activeChannel = "general-chat", onlineCount = 1, allowOffline = false }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<{ id?: string; username?: string } | null>(null);
@@ -24,12 +27,15 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
       try {
         setUser(JSON.parse(raw));
       } catch {
-        router.push("/");
+        if (allowOffline) setUser({ username: "Guest" });
+        else router.push("/");
       }
+    } else if (allowOffline) {
+      setUser({ username: "Guest" });
     } else {
       router.push("/");
     }
-  }, [router]);
+  }, [router, allowOffline]);
 
   const toggleMute = () => {
     const next = !isMicMuted;
@@ -61,6 +67,7 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
 
   const isVoiceActive = pathname === "/voice";
   const isChatActive = pathname === "/chat";
+  const isMeshActive = pathname === "/mesh";
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#08090C] text-[#F2F3F5] select-none font-sans">
@@ -143,6 +150,28 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
           </div>
         </Link>
 
+        {/* Offline Mesh (no internet) */}
+        <Link
+          href="/mesh"
+          className="group relative flex items-center justify-center w-full focus:outline-none"
+          title="Offline Mesh (no internet)"
+        >
+          <div
+            className={`absolute left-0 w-1 bg-white rounded-r-full transition-all duration-200 ${
+              isMeshActive ? "h-10" : "h-0 group-hover:h-5"
+            }`}
+          />
+          <div
+            className={`w-12 h-12 rounded-[24px] group-hover:rounded-[16px] flex items-center justify-center transition-all duration-200 border border-white/[0.06] shadow-md ${
+              isMeshActive
+                ? "bg-[#F0B232]/15 text-[#F0B232] border-[#F0B232]/50 rounded-[16px]"
+                : "bg-[#171922] text-[#949BA4] group-hover:bg-[#F0B232]/10 group-hover:text-[#F0B232]"
+            }`}
+          >
+            <MeshIcon />
+          </div>
+        </Link>
+
         <div className="mt-auto flex flex-col items-center gap-2">
           {/* Logout / Exit */}
           <button
@@ -219,6 +248,27 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
                   <span className="text-[10px] px-1.5 py-0.2 rounded bg-white/[0.05] text-[#949BA4] font-mono">
                     HD
                   </span>
+                </Link>
+              </div>
+            </div>
+
+            {/* OFFLINE MESH CHANNEL */}
+            <div>
+              <div className="flex items-center justify-between px-2 py-1 text-[11px] font-semibold text-[#6D737F] tracking-wider uppercase">
+                <span>Offline Mesh</span>
+                <span className="text-[10px] text-[#F0B232] font-mono">BLE</span>
+              </div>
+              <div className="mt-1 space-y-0.5">
+                <Link
+                  href="/mesh"
+                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] font-medium transition-all ${
+                    isMeshActive
+                      ? "bg-[#F0B232]/15 text-[#F0B232] font-semibold"
+                      : "text-[#949BA4] hover:bg-white/[0.04] hover:text-[#DBDEE1]"
+                  }`}
+                >
+                  <MeshIcon className="w-4 h-4 shrink-0" />
+                  <span className="truncate">nearby</span>
                 </Link>
               </div>
             </div>
