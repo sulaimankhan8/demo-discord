@@ -10,11 +10,14 @@
     "test:mesh": "vitest run",
     "build:app": "dotenv -e .env.capacitor -v BUILD_TARGET=capacitor -- next build && cap sync android",
     "app:open": "cap open android",
-    "app:run": "cap run android"
+    "app:run": "cap run android",
+    "build:ios": "dotenv -e .env.capacitor -v BUILD_TARGET=capacitor -- next build && cap sync ios",
+    "ios:open": "cap open ios"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
     "@capacitor/core": "^8.5.3",
+    "@capacitor/ios": "^8.5.3",
     "@noble/curves": "^2.4.0",
     "@noble/hashes": "^2.4.0",
     "idb": "^8.0.4",

@@ -50,7 +50,8 @@ import java.util.UUID;
  * same time. It only finds phones, keeps links open and moves raw frames; all mesh logic
  * (routing, dedup, signatures) lives in the web code (frontend/lib/mesh).
  *
- * Duplicate links: each phone puts a random 8-byte node id in its scan response. The phone with
+ * Duplicate links: each phone puts a random 8-byte node id in its scan response (iPhones put
+ * "M" + the id in hex in their local name instead, since iOS can't advertise service data). The phone with
  * the lower id connects; the other waits (and connects anyway after a while if nothing happens).
  * After connecting, the central sends a hello frame [0xFF][node id] so the peripheral knows who
  * it is. Mesh frames always start with 0x00 or 0x01, so they never clash with the hello.
@@ -567,8 +568,7 @@ public class BleMeshEngine {
         Long cooldown = cooldownUntil.get(address);
         if (cooldown != null && cooldown > now) return;
 
-        ScanRecord record = result.getScanRecord();
-        byte[] peerId = record == null ? null : record.getServiceData(new ParcelUuid(serviceUuid));
+        byte[] peerId = peerNodeId(result.getScanRecord());
         if (peerId != null && peerId.length == NODE_ID_BYTES) {
             if (Arrays.equals(peerId, nodeId)) return;
             if (isLinkedTo(peerId)) return; // they already connected to us
@@ -584,6 +584,26 @@ public class BleMeshEngine {
             }
         }
         connect(device, peerId);
+    }
+
+    /**
+     * Reads a phone's node id: service data (Android) or an "M" + hex local name (iPhones can't
+     * advertise service data, so they put the id in the name instead).
+     */
+    private byte[] peerNodeId(ScanRecord record) {
+        if (record == null) return null;
+        byte[] id = record.getServiceData(new ParcelUuid(serviceUuid));
+        if (id != null && id.length == NODE_ID_BYTES) return id;
+        String name = record.getDeviceName();
+        if (name == null || name.length() != 1 + NODE_ID_BYTES * 2 || name.charAt(0) != 'M') return null;
+        byte[] out = new byte[NODE_ID_BYTES];
+        for (int i = 0; i < NODE_ID_BYTES; i++) {
+            int hi = Character.digit(name.charAt(1 + i * 2), 16);
+            int lo = Character.digit(name.charAt(2 + i * 2), 16);
+            if (hi < 0 || lo < 0) return null;
+            out[i] = (byte) ((hi << 4) | lo);
+        }
+        return out;
     }
 
     private boolean isLinkedTo(byte[] peerId) {

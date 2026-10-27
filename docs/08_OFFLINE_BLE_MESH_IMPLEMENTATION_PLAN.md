@@ -118,6 +118,10 @@ frontend/
 │   │   └── BleLinkTransport.ts          ✅ Phase 2: wraps the native plugin
 │   └── __tests__/                       # packet, fragment, router, 20-node simulation
 ├── vitest.config.mts                    ✅ `npm run test:mesh`
+├── ios/App/App/                         🟡 Phase 4 (Swift, inside the app; not compiled yet)
+│   ├── BleMeshEngine.swift              # CoreBluetooth twin of BleMeshEngine.java
+│   ├── BleMeshPlugin.swift              # same BleMesh JS API as Android
+│   └── MainViewController.swift         # registers the plugin
 └── android/app/src/main/java/com/demodiscord/app/
     ├── MainActivity.java                ✅ registers the plugin
     └── mesh/                            ✅ Phase 2 (Java, inside the app; no separate package)
@@ -251,22 +255,44 @@ Built as planned, with 28 unit and simulation tests (`npm run test:mesh`) and a 
 - Unit tests for packet encode/decode, fragmentation, and dedup, plus a **simulation of 20 nodes in memory** checking that every node gets each message exactly once.
 - **Done when:** in 3 browser tabs set up as a chain A–B–C, a message from A shows up in C, relayed by B.
 
-### Phase 2 — Android BLE plugin 🟡 built, needs a two-phone test
+### Phase 2 — Android BLE plugin ✅ done (tested on two phones)
 - Write the plugin: advertise + scan, GATT server + client, MTU, write queue, duplicate-link rule, foreground service.
 - Write `BleLinkTransport.ts` and switch to it on native.
 - **Done when:** two Android phones in airplane mode with Bluetooth on chat in the Mesh channel.
 
 **Status:** Written in Java (no Kotlin build setup needed) and compiled into a debug APK with JDK 21. `BleLinkTransport` is tested against a fake plugin, including two fake phones chatting through the real mesh code (35 tests). The page shows clear errors with **Turn on Bluetooth** / **Try again** buttons, and a banner if Bluetooth goes off while running. It loads only inside the app, and only when `/mesh` opens.
 
-**Not verified yet:** real radios. Test with two Android phones (Android 8+): install the APK on both, open Mesh, allow Bluetooth (and notifications), turn on airplane mode with Bluetooth still on, and send messages both ways. Then try three phones in a line for relaying, and the screen off on the middle phone (the "Offline mesh is on" notification keeps it relaying). Watch `adb logcat -s BleMesh` for radio errors.
+**Verified 2026-10-27:** two Android phones in airplane mode with Bluetooth on linked ("1 link") and exchanged messages, with the "Offline mesh is on" notification showing. To re-test: use two Android phones (Android 8+): install the APK on both, open Mesh, allow Bluetooth (and notifications), turn on airplane mode with Bluetooth still on, and send messages both ways. Then try three phones in a line for relaying, and the screen off on the middle phone (the "Offline mesh is on" notification keeps it relaying). Watch `adb logcat -s BleMesh` for radio errors.
 
-### Phase 3 — Multi-hop and late delivery
+### Phase 3 — Multi-hop and late delivery 🟡 code done, needs a 3-phone test
 - Turn on relaying, `SYNC`, and the DM outbox.
 - **Done when:** with 3 phones in a line (A and C too far apart to connect directly), A's message reaches C. A phone that arrives late still gets the recent history.
 
-### Phase 4 — iOS plugin
+**Status:** Relaying (7-hop limit, dedup, jitter, rate limit) and `SYNC` were built and simulated in Phase 1 and run unchanged over Bluetooth since Phase 2. The DM outbox moves to Phase 5, because it needs DMs first. No new code was needed for this phase.
+
+**3-phone test:** put phone B in the middle, with A and C far enough apart that they can't connect directly (another room, ~30 m+ through walls). A's message should show on C as "2 hops" (tap the message to show its hop label), and B's **Relayed** count should go up. Then turn B's screen off and repeat. For late delivery: send a few messages between A and B, then bring C into range of B; C should get them.
+
+### Phase 4 — iOS plugin 🟡 written, needs a Mac build and test
 - Write `BleMeshPlugin.swift` (CoreBluetooth: `CBPeripheralManager` + `CBCentralManager`) with the background modes.
 - **Done when:** iPhone ↔ Android chat works both ways, in the foreground and (at a lower rate) in the background.
+
+**Status:** Written but **not compiled** (Swift can't be built on Windows). Files in `frontend/ios/App/App/`:
+- `BleMeshEngine.swift` — the iOS twin of `BleMeshEngine.java`: same service/characteristic UUIDs, hello frame, lower-ID-connects rule, one queue per link (paced by iOS's "ready to send" callbacks).
+- `BleMeshPlugin.swift` — same `BleMesh` JavaScript API as Android, so the web code is unchanged. iOS can't turn Bluetooth on for you, so `enableBluetooth()` opens the app's Settings page.
+- `MainViewController.swift` — registers the plugin (`SceneDelegate` and `Main.storyboard` point to it); all three are added to `App.xcodeproj`.
+- `Info.plist` — Bluetooth permission text, `bluetooth-central` / `bluetooth-peripheral` background modes, microphone/camera text for voice and video, and local-network access for a development backend on your Wi-Fi.
+
+**iPhone ↔ Android:** iOS can't put service data in its advertisement, so iPhones send their node ID as the local name `M<16 hex chars>`. The Android engine reads either form.
+
+**Known iOS limits:** in the background iOS hides the advertised service and slows scanning, so iPhones relay much less with the app closed. There's no "mesh is on" notification like Android's; the background modes keep existing links alive.
+
+**Building on the Mac:**
+1. Install Xcode (and Node 22). Clone the repo, then `cd frontend && npm install`.
+2. `cp .env.capacitor.example .env.capacitor` and set the backend URL (the Mac's Wi-Fi address, or your server).
+3. `npm run build:ios` (static build + copy into `ios/`), then `npm run ios:open`.
+4. In Xcode: select the **App** target → *Signing & Capabilities* → pick your Team (a free Apple ID works; the app then expires after 7 days). Plug in the iPhone, pick it as the run target, and press Run. On the phone, trust the developer under Settings → General → VPN & Device Management.
+5. If Xcode reports Swift errors in the three mesh files, send them over and I'll fix them.
+6. Test: open Mesh on the iPhone and an Android phone (both in airplane mode with Bluetooth on) and chat both ways; then try with the iPhone app in the background.
 
 ### Phase 5 — Security
 - 5a: encrypted DMs, padding, fingerprint screen, panic wipe. 5b: Noise XX.
