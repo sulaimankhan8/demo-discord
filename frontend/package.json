@@ -7,9 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:mesh": "vitest run"
+    "test:mesh": "vitest run",
+    "build:app": "dotenv -e .env.capacitor -v BUILD_TARGET=capacitor -- next build && cap sync android",
+    "app:open": "cap open android",
+    "app:run": "cap run android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
     "@noble/curves": "^2.4.0",
     "@noble/hashes": "^2.4.0",
     "idb": "^8.0.4",
@@ -20,10 +25,12 @@
     "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.4",
     "tailwindcss": "^4",

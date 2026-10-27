@@ -75,13 +75,13 @@ flowchart TD
 
 | File | Change | Why it can't affect chat/voice |
 | :--- | :--- | :--- |
-| `frontend/components/AppShell.tsx` | Add one `<Link href="/mesh">` rail icon after the Voice icon. Add an optional `allowOffline?: boolean` prop, **default `false`**, that skips the login redirect. | Chat and Voice don't pass the prop, so they behave exactly as now. The icon is just a link. |
-| `frontend/next.config.ts` | `output: process.env.BUILD_TARGET === "capacitor" ? "export" : undefined` | The normal web build (`npm run build` / `npm run dev`) is unchanged. Static export only happens in the app build. |
-| `frontend/package.json` | Add dependencies (`@capacitor/*`, `@noble/*`, `idb`, and `cross-env` so the env var also works on Windows) and one script: `"build:app": "cross-env BUILD_TARGET=capacitor next build && cap sync"`. | Existing scripts stay the same. The new packages are only imported by mesh files, so Next.js keeps them out of the chat and voice bundles. |
+| `frontend/components/AppShell.tsx` | Add one `<Link href="/mesh">` rail icon after the Voice icon. Add an optional `allowOffline?: boolean` prop, **default `false`**, that skips the login redirect. Strip a trailing slash from `usePathname()` before the active-channel checks. | Chat and Voice don't pass the prop, so they behave exactly as now. The icon is just a link. On the web the path never ends in `/`, so the slash fix changes nothing there; in the app it keeps the Chat/Voice highlights and "Voice Connected" banner working. |
+| `frontend/next.config.ts` | When `BUILD_TARGET=capacitor`: `output: "export"` and `trailingSlash: true` (so each route is a folder with `index.html`, which the app's local server can open directly). | The normal web build (`npm run build` / `npm run dev`) is unchanged. Static export only happens in the app build. |
+| `frontend/package.json` | Add dependencies (`@capacitor/*`, `@noble/*`, `idb`, `dotenv-cli`) and scripts: `build:app` (`dotenv -e .env.capacitor -v BUILD_TARGET=capacitor -- next build && cap sync android`), `app:open`, `app:run`. | Existing scripts stay the same. The new packages are only imported by mesh files, so Next.js keeps them out of the chat and voice bundles. |
 
 **New, separate files:** everything under `app/mesh/`, `components/mesh/`, `hooks/useMesh.ts`, `lib/mesh/` and `plugins/capacitor-ble-mesh/` (see §4).
 
-**Backend URL in the app:** no code change. The `localhost:4000` fallback in `page.tsx` and `ChatBox.tsx` stays. The app build sets `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_SOCKET_URL` to the real HTTPS server through an env file (`.env.capacitor`), so the fallback is never used there.
+**Backend URL in the app:** no code change. The `localhost:4000` fallback in `page.tsx` and `ChatBox.tsx` stays. The app build reads `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_SOCKET_URL` from `frontend/.env.capacitor` (git-ignored; copy `.env.capacitor.example`), so the fallback is never used there. `CAP_ALLOW_HTTP=true` in that file lets a development build talk to a plain-http backend on your network; release builds should use https and leave it off.
 
 **On the website** (not the native app), the Mesh icon still shows but opens a "Mesh works in the mobile app" screen. Check this with `Capacitor.isNativePlatform()`.
 
@@ -222,10 +222,19 @@ When a packet arrives:
 
 Each phase ends in something that works and can be tested.
 
-### Phase 0 — Capacitor wrap (no mesh yet)
+### Phase 0 — Capacitor wrap (no mesh yet) 🟡 set up, needs a device test
 - Add the env-gated static export (§3), `.env.capacitor`, and the `build:app` script. Set up Capacitor and add Android (iOS later).
 - Add mic permission for voice in the Android manifest.
 - **Done when:** the Android app opens with no internet, Text Chat + Voice work against the backend exactly like the website, **and** the regular web build and the §12 checks still pass.
+
+**Status:** Capacitor 8.5.3 and the Android project (`frontend/android/`) are in place, with mic and camera permissions. The static app build works and all routes open from it; the web build and §12 checks still pass. Not yet done: compiling the APK and testing on a phone.
+
+**Building the app (Windows):**
+1. Install **JDK 21** — Capacitor 8 needs exactly that. JDK 17 is too old, and the JDK 25 bundled with Android Studio is too new for its Gradle 8.14. Easiest: Android Studio → Settings → Build Tools → Gradle → Gradle JDK → *Download JDK* → version 21. Or set `JAVA_HOME` to a JDK 21 for command-line builds.
+2. `cd frontend`, then `cp .env.capacitor.example .env.capacitor` and set the backend URL (your PC's Wi-Fi address for a real phone, `10.0.2.2` for the emulator).
+3. Start the backend, then run `npm run build:app` (static build + copy into `android/`).
+4. `npm run app:open` to open Android Studio and press Run, or `npm run app:run` with a phone connected over USB.
+5. Check: log in, send a message, react, join voice (allow the microphone), then turn on airplane mode — the app should still open, and `/mesh` should show "Bluetooth mesh isn't available in this build yet" (Phase 2 adds it).
 
 ### Phase 1 — Mesh channel UI + mesh logic in the browser ✅ done
 Built as planned, with 28 unit and simulation tests (`npm run test:mesh`) and a manual check in 3 browser tabs: chain relay at 2 hops, catch-up after a tab reload, and the mesh stopping when you leave `/mesh`. The catch-up part of Phase 3 (`SYNC`) is also done. Try it: run the frontend, open `/mesh` in 2–3 tabs, and press **Start simulation** in each.

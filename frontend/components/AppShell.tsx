@@ -15,7 +15,9 @@ interface AppShellProps {
 }
 
 export default function AppShell({ children, activeChannel = "general-chat", onlineCount = 1, allowOffline = false }: AppShellProps) {
-  const pathname = usePathname();
+  // The app build uses trailing slashes ("/chat/"); drop them so the checks below match on
+  // both web and app. On the web the path never has one, so nothing changes there.
+  const pathname = usePathname().replace(/(.)\/+$/, "$1");
   const router = useRouter();
   const [user, setUser] = useState<{ id?: string; username?: string } | null>(null);
   const [isMicMuted, setIsMicMuted] = useState(false);

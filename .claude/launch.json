@@ -12,6 +12,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "frontend", "run", "start", "--", "-p", "3001"],
       "port": 3001
+    },
+    {
+      "name": "app-static",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "3002", "--directory", "frontend/out"],
+      "port": 3002
     }
   ]
 }

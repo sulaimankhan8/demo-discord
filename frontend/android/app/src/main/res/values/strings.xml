@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Demo Discord</string>
+    <string name="title_activity_main">Demo Discord</string>
+    <string name="package_name">com.demodiscord.app</string>
+    <string name="custom_url_scheme">com.demodiscord.app</string>
+</resources>
