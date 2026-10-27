@@ -62,3 +62,24 @@ export function truncateUtf8(text: string, maxBytes: number): string {
   }
   return out;
 }
+
+/** Base64 without line breaks (how frames cross the native bridge). */
+export function toBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+export function fromBase64(text: string): Uint8Array | null {
+  try {
+    const binary = atob(text);
+    const out = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+    return out;
+  } catch {
+    return null;
+  }
+}

@@ -11,7 +11,7 @@ import MeshSidebar from "./MeshSidebar";
 import { MESH_ACCENT } from "./meshUi";
 
 export default function MeshRoom() {
-  const { state, native, start, stop, send, setNickname, setSimPosition } = useMesh();
+  const { state, native, start, stop, restart, enableBluetooth, send, setNickname, setSimPosition } = useMesh();
 
   // The mesh only runs while this page is open (see docs/08 §12).
   useEffect(() => {
@@ -49,9 +49,39 @@ export default function MeshRoom() {
           {state.status === "idle" && !native ? (
             <Intro onStart={() => void start("sim")} />
           ) : state.status === "error" ? (
-            <Notice title="Mesh couldn't start" body={state.error ?? "Unknown error."} />
+            <Notice title="Mesh couldn't start" body={state.error ?? "Unknown error."}>
+              {state.errorCode === "bluetooth_off" && (
+                <button
+                  onClick={() => void enableBluetooth()}
+                  className="px-4 py-2 bg-[#F0B232] hover:bg-[#D99E22] text-[#08090C] text-xs font-semibold rounded-md transition cursor-pointer"
+                >
+                  Turn on Bluetooth
+                </button>
+              )}
+              {state.errorCode !== "unsupported" && (
+                <button
+                  onClick={() => void restart()}
+                  className="px-4 py-2 bg-white/[0.06] hover:bg-white/[0.1] text-[#F2F3F5] text-xs font-semibold rounded-md transition cursor-pointer"
+                >
+                  Try again
+                </button>
+              )}
+            </Notice>
           ) : (
             <>
+              {state.notice && (
+                <div className="mx-4 mt-3 flex items-center justify-between gap-3 px-3 py-2 rounded-md border border-[#F0B232]/30 bg-[#F0B232]/10 text-[12px] text-[#F0B232]">
+                  <span>{state.notice.message}</span>
+                  {state.notice.code === "bluetooth_off" && (
+                    <button
+                      onClick={() => void enableBluetooth()}
+                      className="shrink-0 px-2.5 py-1 rounded bg-[#F0B232] hover:bg-[#D99E22] text-[#08090C] text-[11px] font-semibold transition cursor-pointer"
+                    >
+                      Turn on
+                    </button>
+                  )}
+                </div>
+              )}
               <MeshMessageList messages={state.messages} />
               <MeshComposer disabled={!running} onSend={send} />
             </>
@@ -117,12 +147,13 @@ function Intro({ onStart }: { onStart: () => void }) {
   );
 }
 
-function Notice({ title, body }: { title: string; body: string }) {
+function Notice({ title, body, children }: { title: string; body: string; children?: React.ReactNode }) {
   return (
     <div className="flex-1 flex items-center justify-center p-6">
       <div className="max-w-md w-full bg-[#12141A] border border-white/[0.06] rounded-xl p-6">
         <h3 className="text-base font-bold text-white tracking-tight">{title}</h3>
         <p className="text-[13px] text-[#949BA4] mt-2 leading-relaxed">{body}</p>
+        {children && <div className="mt-5 flex flex-wrap gap-2">{children}</div>}
       </div>
     </div>
   );

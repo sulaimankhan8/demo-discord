@@ -2,9 +2,11 @@
 
 import { useSyncExternalStore } from "react";
 import {
+  enableBluetooth,
   getMeshState,
   getServerMeshState,
   isNativeApp,
+  restartMesh,
   sendMeshText,
   setMeshNickname,
   setSimPosition,
@@ -24,6 +26,8 @@ export function useMesh() {
     native,
     start: startMesh,
     stop: stopMesh,
+    restart: restartMesh,
+    enableBluetooth,
     send: sendMeshText,
     setNickname: setMeshNickname,
     setSimPosition,

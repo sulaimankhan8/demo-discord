@@ -79,7 +79,7 @@ flowchart TD
 | `frontend/next.config.ts` | When `BUILD_TARGET=capacitor`: `output: "export"` and `trailingSlash: true` (so each route is a folder with `index.html`, which the app's local server can open directly). | The normal web build (`npm run build` / `npm run dev`) is unchanged. Static export only happens in the app build. |
 | `frontend/package.json` | Add dependencies (`@capacitor/*`, `@noble/*`, `idb`, `dotenv-cli`) and scripts: `build:app` (`dotenv -e .env.capacitor -v BUILD_TARGET=capacitor -- next build && cap sync android`), `app:open`, `app:run`. | Existing scripts stay the same. The new packages are only imported by mesh files, so Next.js keeps them out of the chat and voice bundles. |
 
-**New, separate files:** everything under `app/mesh/`, `components/mesh/`, `hooks/useMesh.ts`, `lib/mesh/` and `plugins/capacitor-ble-mesh/` (see §4).
+**New, separate files:** everything under `app/mesh/`, `components/mesh/`, `hooks/useMesh.ts`, `lib/mesh/` and the native plugin in `android/app/src/main/java/com/demodiscord/app/mesh/` (see §4).
 
 **Backend URL in the app:** no code change. The `localhost:4000` fallback in `page.tsx` and `ChatBox.tsx` stays. The app build reads `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_SOCKET_URL` from `frontend/.env.capacitor` (git-ignored; copy `.env.capacitor.example`), so the fallback is never used there. `CAP_ALLOW_HTTP=true` in that file lets a development build talk to a plain-http backend on your network; release builds should use https and leave it off.
 
@@ -115,10 +115,15 @@ frontend/
 │   ├── transports/
 │   │   ├── LinkTransport.ts             # interface
 │   │   ├── DevLinkTransport.ts          # BroadcastChannel, browser tabs = fake phones
-│   │   └── BleLinkTransport.ts          # Phase 2: wraps native plugin
+│   │   └── BleLinkTransport.ts          ✅ Phase 2: wraps the native plugin
 │   └── __tests__/                       # packet, fragment, router, 20-node simulation
 ├── vitest.config.mts                    ✅ `npm run test:mesh`
-└── plugins/capacitor-ble-mesh/          # Phase 2
+└── android/app/src/main/java/com/demodiscord/app/
+    ├── MainActivity.java                ✅ registers the plugin
+    └── mesh/                            ✅ Phase 2 (Java, inside the app; no separate package)
+        ├── BleMeshEngine.java           # advertise + scan, GATT server/client, write queues
+        ├── BleMeshPlugin.java           # Capacitor bridge, permissions
+        └── MeshForegroundService.java   # keeps relaying with the screen off
     ├── src/definitions.ts             # TS interface of the plugin
     ├── android/.../BleMeshPlugin.kt
     └── ios/Plugin/BleMeshPlugin.swift
@@ -128,30 +133,31 @@ frontend/
 
 ## 5. Native plugin contract (link layer)
 
-The only native code. Same API on Android and iOS.
+The only native code. Same API on Android and iOS (iOS in Phase 4). As built (TypeScript side in `lib/mesh/transports/BleLinkTransport.ts`):
 
 ```ts
-// plugins/capacitor-ble-mesh/src/definitions.ts
 export interface BleMeshPlugin {
-  requestPermissions(): Promise<{ granted: boolean }>;
-  start(opts: { serviceUuid: string; maxLinks?: number }): Promise<void>; // advertise + scan
+  ensurePermissions(): Promise<{ granted: boolean }>;   // asks only for what's missing
+  start(opts?: { serviceUuid?: string; characteristicUuid?: string; maxLinks?: number }): Promise<void>;
+  // rejects with code PERMISSION | BLUETOOTH_OFF | UNSUPPORTED
   stop(): Promise<void>;
-  send(opts: { linkId: string; data: string /* base64 */ }): Promise<void>;
-  getState(): Promise<{ bluetoothOn: boolean; links: LinkInfo[] }>;
+  send(opts: { linkId: string; data: string /* base64 */ }): Promise<{ queued: boolean }>;
+  getState(): Promise<BleMeshState>;                     // running, bluetoothOn, advertising, scanning, error?, links
+  enableBluetooth(): Promise<void>;                      // Android's "Turn on Bluetooth?" dialog
 
-  addListener(e: "linkUp",    cb: (l: LinkInfo) => void): Promise<PluginListenerHandle>;
-  addListener(e: "linkDown",  cb: (l: { linkId: string }) => void): Promise<PluginListenerHandle>;
-  addListener(e: "data",      cb: (d: { linkId: string; data: string }) => void): Promise<PluginListenerHandle>;
-  addListener(e: "bluetoothState", cb: (s: { on: boolean }) => void): Promise<PluginListenerHandle>;
+  addListener(e: "linkUp",   cb: (l: { linkId: string; maxFrameBytes: number; role: string }) => void): Promise<PluginListenerHandle>;
+  addListener(e: "linkDown", cb: (l: { linkId: string }) => void): Promise<PluginListenerHandle>;
+  addListener(e: "data",     cb: (d: { linkId: string; data: string }) => void): Promise<PluginListenerHandle>;
+  addListener(e: "state",    cb: (s: BleMeshState) => void): Promise<PluginListenerHandle>;
 }
-
-export interface LinkInfo { linkId: string; rssi?: number; mtu: number; role: "central" | "peripheral"; }
 ```
+
+Link IDs are `c:<address>` (we connected to them) or `p:<address>` (they connected to us).
 
 **What it does internally:**
 - **One GATT service** (fixed UUID) with **one characteristic** that supports *write without response* (to send to it) and *notify* (to receive from it).
 - **Both roles at the same time:** the phone advertises the service (so others find it) and scans for the same UUID (so it finds others). When it finds a phone, it connects, asks for a bigger MTU (up to 512 on Android; iOS picks its own, about 185), and subscribes to notifications.
-- **Duplicate links:** if A connects to B while B also connects to A, keep only one. Rule: the phone with the lower device ID keeps the central role.
+- **Duplicate links:** each phone puts a random 8-byte node ID in its scan response. The phone with the **lower** ID connects; the other waits, and connects anyway after 15 s if nothing happened (it may not be visible the other way). Right after connecting, the central sends a link-level hello `[0xFF][node ID]` so the peripheral knows who it is and both sides skip a second link. Mesh frames always start with `0x00` or `0x01`, so the hello never reaches the mesh code.
 - **Link limit:** about 6–8 links at once (Android often fails above ~7). When full, drop the link with the weakest signal (RSSI).
 - **Write queue:** BLE writes must go out one at a time. The plugin queues them and paces them.
 
@@ -245,10 +251,14 @@ Built as planned, with 28 unit and simulation tests (`npm run test:mesh`) and a 
 - Unit tests for packet encode/decode, fragmentation, and dedup, plus a **simulation of 20 nodes in memory** checking that every node gets each message exactly once.
 - **Done when:** in 3 browser tabs set up as a chain A–B–C, a message from A shows up in C, relayed by B.
 
-### Phase 2 — Android BLE plugin
-- Write `BleMeshPlugin.kt`: advertise + scan, GATT server + client, MTU, write queue, duplicate-link rule, foreground service.
+### Phase 2 — Android BLE plugin 🟡 built, needs a two-phone test
+- Write the plugin: advertise + scan, GATT server + client, MTU, write queue, duplicate-link rule, foreground service.
 - Write `BleLinkTransport.ts` and switch to it on native.
 - **Done when:** two Android phones in airplane mode with Bluetooth on chat in the Mesh channel.
+
+**Status:** Written in Java (no Kotlin build setup needed) and compiled into a debug APK with JDK 21. `BleLinkTransport` is tested against a fake plugin, including two fake phones chatting through the real mesh code (35 tests). The page shows clear errors with **Turn on Bluetooth** / **Try again** buttons, and a banner if Bluetooth goes off while running. It loads only inside the app, and only when `/mesh` opens.
+
+**Not verified yet:** real radios. Test with two Android phones (Android 8+): install the APK on both, open Mesh, allow Bluetooth (and notifications), turn on airplane mode with Bluetooth still on, and send messages both ways. Then try three phones in a line for relaying, and the screen off on the middle phone (the "Offline mesh is on" notification keeps it relaying). Watch `adb logcat -s BleMesh` for radio errors.
 
 ### Phase 3 — Multi-hop and late delivery
 - Turn on relaying, `SYNC`, and the DM outbox.

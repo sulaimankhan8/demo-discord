@@ -7,6 +7,7 @@ import { IDLE_SNAPSHOT, MeshService, type MeshSnapshot } from "./MeshService";
 import { cleanNickname } from "./payloads";
 import { IdbMeshStore, MemoryMeshStore } from "./store";
 import { DevLinkTransport } from "./transports/DevLinkTransport";
+import type { LinkTransport } from "./transports/LinkTransport";
 
 export type MeshMode = "sim" | "ble";
 
@@ -28,10 +29,12 @@ const SIM_ENABLED_KEY = "mesh:sim:enabled";
 const SIM_POSITION_KEY = "mesh:sim:position";
 
 let service: MeshService | null = null;
-let transport: DevLinkTransport | null = null;
+let simTransport: DevLinkTransport | null = null;
 let unsubscribe: (() => void) | null = null;
 let mode: MeshMode | null = null;
 let state: MeshSessionState = IDLE;
+/** Bumped on every start/stop, so a start that is still loading can tell it was cancelled. */
+let generation = 0;
 const listeners = new Set<() => void>();
 
 function storageFor(m: MeshMode): Storage {
@@ -56,7 +59,7 @@ function safeSet(storage: Storage, key: string, value: string | null): void {
 }
 
 function update(snapshot: MeshSnapshot): void {
-  state = { ...snapshot, mode, simPosition: transport?.getPosition() ?? null };
+  state = { ...snapshot, mode, simPosition: simTransport?.getPosition() ?? null };
   for (const l of listeners) l();
 }
 
@@ -77,7 +80,7 @@ export function getServerMeshState(): MeshSessionState {
 
 /* ---------------- environment ---------------- */
 
-/** True inside the Capacitor app (Phase 0+). */
+/** True inside the Capacitor app. */
 export function isNativeApp(): boolean {
   const cap = (globalThis as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
   return cap?.isNativePlatform?.() === true;
@@ -91,24 +94,27 @@ export function isSimRemembered(): boolean {
 
 export async function startMesh(nextMode: MeshMode): Promise<void> {
   if (service) return;
+  const gen = ++generation;
+  mode = nextMode;
 
+  let transport: LinkTransport;
   if (nextMode === "ble") {
-    // The Bluetooth plugin arrives in Phase 2.
-    mode = "ble";
-    update({ ...IDLE_SNAPSHOT, status: "error", error: "Bluetooth mesh isn't available in this build yet." });
-    return;
+    update({ ...IDLE_SNAPSHOT, status: "starting" });
+    // Loaded only in the app, and only when the mesh starts.
+    const { BleLinkTransport } = await import("./transports/BleLinkTransport");
+    if (gen !== generation) return; // stopped while loading
+    transport = new BleLinkTransport();
+  } else {
+    safeSet(sessionStorage, SIM_ENABLED_KEY, "1");
+    const savedPos = safeGet(sessionStorage, SIM_POSITION_KEY);
+    const position = savedPos !== null && savedPos !== "" && !Number.isNaN(Number(savedPos)) ? Number(savedPos) : null;
+    simTransport = new DevLinkTransport(position);
+    transport = simTransport;
   }
 
-  mode = nextMode;
-  safeSet(sessionStorage, SIM_ENABLED_KEY, "1");
   const storage = storageFor(nextMode);
   const keys = KEYS[nextMode];
   const identity = loadIdentity(storage, keys.identity);
-
-  const savedPos = safeGet(sessionStorage, SIM_POSITION_KEY);
-  const position = savedPos !== null && savedPos !== "" && !Number.isNaN(Number(savedPos)) ? Number(savedPos) : null;
-  transport = new DevLinkTransport(position);
-
   service = new MeshService({
     transport,
     identity,
@@ -122,16 +128,34 @@ export async function startMesh(nextMode: MeshMode): Promise<void> {
 }
 
 export async function stopMesh(options: { forget?: boolean } = {}): Promise<void> {
+  generation++;
   const current = service;
   service = null;
   unsubscribe?.();
   unsubscribe = null;
-  transport = null;
+  simTransport = null;
   if (options.forget) safeSet(sessionStorage, SIM_ENABLED_KEY, null);
   mode = null;
   state = IDLE;
   for (const l of listeners) l();
   await current?.stop();
+}
+
+/** Stops and starts again in the same mode (e.g. after turning Bluetooth on). */
+export async function restartMesh(): Promise<void> {
+  const m = mode;
+  if (!m) return;
+  await stopMesh();
+  await startMesh(m);
+}
+
+/** Shows Android's "Turn on Bluetooth?" dialog (app only). */
+export async function enableBluetooth(): Promise<void> {
+  if (!isNativeApp()) return;
+  const { getBleMeshPlugin } = await import("./transports/BleLinkTransport");
+  await getBleMeshPlugin()
+    .enableBluetooth()
+    .catch(() => {});
 }
 
 export function sendMeshText(text: string): void {
@@ -146,9 +170,9 @@ export function setMeshNickname(nickname: string): void {
 }
 
 export function setSimPosition(position: number | null): void {
-  if (!transport || !service) return;
+  if (!simTransport || !service) return;
   safeSet(sessionStorage, SIM_POSITION_KEY, position === null ? null : String(position));
-  transport.setPosition(position);
+  simTransport.setPosition(position);
   update(service.getSnapshot());
 }
 

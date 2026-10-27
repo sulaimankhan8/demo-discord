@@ -7,7 +7,7 @@ import { decodePacket } from "./packet";
 import { cleanNickname, decodeMessagePayload } from "./payloads";
 import { MeshRouter, type DeliveredMessage, type RouterStats } from "./router";
 import type { MeshStore, StoredMessage } from "./store";
-import type { LinkInfo, LinkTransport } from "./transports/LinkTransport";
+import { TransportError, type LinkInfo, type LinkTransport, type TransportNotice } from "./transports/LinkTransport";
 
 export interface MeshChatMessage {
   id: string;
@@ -34,6 +34,10 @@ export type MeshStatus = "idle" | "starting" | "running" | "stopped" | "error";
 export interface MeshSnapshot {
   status: MeshStatus;
   error?: string;
+  /** Why start failed, so the UI can offer a fix (e.g. "bluetooth_off"). */
+  errorCode?: TransportError["code"];
+  /** Something the user may need to fix while running (e.g. Bluetooth turned off). */
+  notice: TransportNotice | null;
   transport: LinkTransport["kind"] | null;
   me: { nickname: string; fingerprint: string } | null;
   messages: MeshChatMessage[];
@@ -44,6 +48,7 @@ export interface MeshSnapshot {
 
 export const IDLE_SNAPSHOT: MeshSnapshot = {
   status: "idle",
+  notice: null,
   transport: null,
   me: null,
   messages: [],
@@ -81,6 +86,8 @@ export class MeshService {
   private snapshot: MeshSnapshot = IDLE_SNAPSHOT;
   private status: MeshStatus = "idle";
   private error: string | undefined;
+  private errorCode: TransportError["code"] | undefined;
+  private notice: TransportNotice | null = null;
   private nickname: string;
   private groupId = Math.floor(Math.random() * 2 ** 32);
   private timers: ReturnType<typeof setInterval>[] = [];
@@ -148,6 +155,10 @@ export class MeshService {
           if (packet) this.router.handleIncoming(linkId, packet);
           this.emit();
         },
+        notice: (notice) => {
+          this.notice = notice;
+          this.emit();
+        },
       });
       if (this.stopRequested) {
         await this.opts.transport.stop();
@@ -163,6 +174,7 @@ export class MeshService {
       }
     } catch (err) {
       this.error = err instanceof Error ? err.message : String(err);
+      this.errorCode = err instanceof TransportError ? err.code : "unknown";
       this.setStatus("error");
     }
   }
@@ -181,6 +193,7 @@ export class MeshService {
     this.links.clear();
     this.reassemblers.clear();
     this.peers.clear();
+    this.notice = null;
     this.setStatus("stopped");
   }
 
@@ -323,6 +336,8 @@ export class MeshService {
     return {
       status: this.status,
       error: this.error,
+      errorCode: this.errorCode,
+      notice: this.notice,
       transport: this.opts.transport.kind,
       me: { nickname: this.nickname, fingerprint: this.opts.identity.fingerprint },
       messages: this.messages,

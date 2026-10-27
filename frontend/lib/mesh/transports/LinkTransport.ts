@@ -8,10 +8,29 @@ export interface LinkInfo {
   rssi?: number;
 }
 
+/** A problem the user may need to fix (e.g. Bluetooth turned off). */
+export interface TransportNotice {
+  code: "bluetooth_off" | "radio_error";
+  message: string;
+}
+
 export interface LinkTransportEvents {
   linkUp(info: LinkInfo): void;
   linkDown(linkId: string): void;
   data(linkId: string, frame: Uint8Array): void;
+  /** Called with a notice when something needs attention, and with null once it's fine again. */
+  notice?(notice: TransportNotice | null): void;
+}
+
+/** Error thrown by start() when the transport can't run; `code` lets the UI offer a fix. */
+export class TransportError extends Error {
+  constructor(
+    message: string,
+    readonly code: "permission" | "bluetooth_off" | "unsupported" | "unknown",
+  ) {
+    super(message);
+    this.name = "TransportError";
+  }
 }
 
 export interface LinkTransport {
