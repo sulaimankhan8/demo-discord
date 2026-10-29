@@ -29,6 +29,10 @@ export class SeenCache {
     }
   }
 
+  delete(id: string): void {
+    this.entries.delete(id);
+  }
+
   /** Returns true if the id is new (and records it), false if it was already seen. */
   checkAndAdd(id: string): boolean {
     if (this.has(id)) return false;

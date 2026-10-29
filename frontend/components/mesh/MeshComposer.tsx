@@ -6,7 +6,13 @@ import { soundFx } from "@/lib/soundFx";
 
 const encoder = new TextEncoder();
 
-export default function MeshComposer({ disabled, onSend }: { disabled: boolean; onSend: (text: string) => void }) {
+interface Props {
+  disabled: boolean;
+  onSend: (text: string) => void;
+  placeholder?: string;
+}
+
+export default function MeshComposer({ disabled, onSend, placeholder = "Message phones nearby" }: Props) {
   const [input, setInput] = useState("");
   const bytes = encoder.encode(input.trim()).length;
   const tooLong = bytes > MAX_TEXT_BYTES;
@@ -27,8 +33,8 @@ export default function MeshComposer({ disabled, onSend }: { disabled: boolean; 
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
           disabled={disabled}
-          placeholder={disabled ? "Connecting…" : "Message phones nearby"}
-          aria-label="Message phones nearby"
+          placeholder={disabled && placeholder.startsWith("Message") ? "Connecting…" : placeholder}
+          aria-label={placeholder}
           className="w-full bg-transparent text-sm text-[#F2F3F5] placeholder-[#6D737F] outline-none font-medium disabled:cursor-not-allowed"
         />
         {bytes > MAX_TEXT_BYTES * 0.8 && (

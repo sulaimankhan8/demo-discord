@@ -10,6 +10,7 @@
 		A4C108590038867FA08C20B4 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2047B674A9A0E164288AD79D /* MainViewController.swift */; };
 		53F4181B4592367BA76223CD /* BleMeshPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FA4272B1A363423A32B9B54 /* BleMeshPlugin.swift */; };
 		189176D156D197A5EE84A5A1 /* BleMeshEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3474A5DD48E2A0F9C2CD230 /* BleMeshEngine.swift */; };
+		FA908ACC6DF302EEB25CA623 /* SecureKeyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753C3C4AA8D5523670EB3C3B /* SecureKeyStore.swift */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
@@ -25,6 +26,7 @@
 		2047B674A9A0E164288AD79D /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		8FA4272B1A363423A32B9B54 /* BleMeshPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BleMeshPlugin.swift; sourceTree = "<group>"; };
 		B3474A5DD48E2A0F9C2CD230 /* BleMeshEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BleMeshEngine.swift; sourceTree = "<group>"; };
+		753C3C4AA8D5523670EB3C3B /* SecureKeyStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureKeyStore.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -76,6 +78,7 @@
 				2047B674A9A0E164288AD79D /* MainViewController.swift */,
 				8FA4272B1A363423A32B9B54 /* BleMeshPlugin.swift */,
 				B3474A5DD48E2A0F9C2CD230 /* BleMeshEngine.swift */,
+				753C3C4AA8D5523670EB3C3B /* SecureKeyStore.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
@@ -171,6 +174,7 @@
 				A4C108590038867FA08C20B4 /* MainViewController.swift in Sources */,
 				53F4181B4592367BA76223CD /* BleMeshPlugin.swift in Sources */,
 				189176D156D197A5EE84A5A1 /* BleMeshEngine.swift in Sources */,
+				FA908ACC6DF302EEB25CA623 /* SecureKeyStore.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

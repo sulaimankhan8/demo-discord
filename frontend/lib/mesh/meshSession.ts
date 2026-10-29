@@ -3,9 +3,20 @@
 // (it only reads the username to suggest a nickname).
 
 import { loadIdentity } from "./identity";
-import { IDLE_SNAPSHOT, MeshService, type MeshSnapshot } from "./MeshService";
+import {
+  IDLE_SNAPSHOT,
+  MeshService,
+  type CreateChannelOptions,
+  type JoinResult,
+  type MeshSnapshot,
+} from "./MeshService";
 import { cleanNickname } from "./payloads";
-import { IdbMeshStore, MemoryMeshStore } from "./store";
+import { LINKS_FOR, PowerController, readWebBattery } from "./power";
+import { IdbMeshStore, MemoryMeshStore, type MeshStore } from "./store";
+import type { BleLinkTransport as BleTransport } from "./transports/BleLinkTransport";
+import { KeyVault, SealedMeshStore } from "./vault";
+import { BridgeLinkTransport, bridgeUrlFrom } from "./transports/BridgeLinkTransport";
+import { CompositeTransport } from "./transports/CompositeTransport";
 import { DevLinkTransport } from "./transports/DevLinkTransport";
 import type { LinkTransport } from "./transports/LinkTransport";
 
@@ -15,20 +26,49 @@ export interface MeshSessionState extends MeshSnapshot {
   mode: MeshMode | null;
   /** Position in the simulated chain (sim mode only). null = linked to every tab. */
   simPosition: number | null;
+  /** This build knows a bridge server address. */
+  bridgeAvailable: boolean;
+  /** The user hasn't turned the bridge off. */
+  bridgeEnabled: boolean;
 }
 
-const IDLE: MeshSessionState = { ...IDLE_SNAPSHOT, mode: null, simPosition: null };
+const IDLE: MeshSessionState = {
+  ...IDLE_SNAPSHOT,
+  mode: null,
+  simPosition: null,
+  bridgeAvailable: false,
+  bridgeEnabled: false,
+};
 
 // Simulated phones keep their identity per tab (sessionStorage) so every tab is a different
 // "phone". The real app keeps it in localStorage.
 const KEYS = {
-  sim: { identity: "mesh:sim:identity", nickname: "mesh:sim:nickname" },
-  ble: { identity: "mesh:identity", nickname: "mesh:nickname" },
+  sim: { identity: "mesh:sim:identity", nickname: "mesh:sim:nickname", seq: "mesh:sim:seq", bridge: "mesh:sim:bridge" },
+  ble: { identity: "mesh:identity", nickname: "mesh:nickname", seq: "mesh:seq", bridge: "mesh:bridge" },
 } as const;
+
+/**
+ * The internet bridge lives on the backend at /mesh-bridge (docs/10 C5). Override with
+ * NEXT_PUBLIC_MESH_BRIDGE_URL; otherwise it's derived from the backend URL. Only the address is
+ * read here: the mesh never uses the Socket.IO client.
+ */
+function bridgeUrl(): string | null {
+  const explicit = process.env.NEXT_PUBLIC_MESH_BRIDGE_URL;
+  if (explicit) return explicit;
+  const backend = process.env.NEXT_PUBLIC_SOCKET_URL;
+  return backend ? bridgeUrlFrom(backend) : null;
+}
+
+function bridgeEnabledFor(m: MeshMode): boolean {
+  return safeGet(storageFor(m), KEYS[m].bridge) !== "off";
+}
 const SIM_ENABLED_KEY = "mesh:sim:enabled";
 const SIM_POSITION_KEY = "mesh:sim:position";
 
 let service: MeshService | null = null;
+let store: MeshStore | null = null;
+let bleTransport: BleTransport | null = null;
+let power: PowerController | null = null;
 let simTransport: DevLinkTransport | null = null;
 let unsubscribe: (() => void) | null = null;
 let mode: MeshMode | null = null;
@@ -59,7 +99,13 @@ function safeSet(storage: Storage, key: string, value: string | null): void {
 }
 
 function update(snapshot: MeshSnapshot): void {
-  state = { ...snapshot, mode, simPosition: simTransport?.getPosition() ?? null };
+  state = {
+    ...snapshot,
+    mode,
+    simPosition: simTransport?.getPosition() ?? null,
+    bridgeAvailable: !!bridgeUrl(),
+    bridgeEnabled: mode ? bridgeEnabledFor(mode) : false,
+  };
   for (const l of listeners) l();
 }
 
@@ -103,7 +149,8 @@ export async function startMesh(nextMode: MeshMode): Promise<void> {
     // Loaded only in the app, and only when the mesh starts.
     const { BleLinkTransport } = await import("./transports/BleLinkTransport");
     if (gen !== generation) return; // stopped while loading
-    transport = new BleLinkTransport();
+    bleTransport = new BleLinkTransport();
+    transport = bleTransport;
   } else {
     safeSet(sessionStorage, SIM_ENABLED_KEY, "1");
     const savedPos = safeGet(sessionStorage, SIM_POSITION_KEY);
@@ -114,23 +161,66 @@ export async function startMesh(nextMode: MeshMode): Promise<void> {
 
   const storage = storageFor(nextMode);
   const keys = KEYS[nextMode];
-  const identity = loadIdentity(storage, keys.identity);
+  // In the app, seal secrets with the Keystore/Keychain storage key (C7). Builds whose plugin
+  // doesn't have it yet keep working unsealed, as before.
+  const storageKey = bleTransport ? await bleTransport.storageKey() : null;
+  if (gen !== generation) return;
+  const vault = storageKey ? new KeyVault(storageKey) : null;
+  const identity = loadIdentity(storage, keys.identity, vault);
+  const url = bridgeUrl();
+  const bridge =
+    url && bridgeEnabledFor(nextMode) ? new BridgeLinkTransport({ url, onStatus: () => service?.refresh() }) : undefined;
   service = new MeshService({
-    transport,
+    transport: bridge ? new CompositeTransport(transport, [bridge]) : transport,
+    bridge,
     identity,
     nickname: safeGet(storage, keys.nickname) ?? defaultNickname(identity.fingerprint, nextMode),
     // Simulated phones keep history in memory, so reloading a tab shows catch-up sync working.
-    store: nextMode === "sim" ? new MemoryMeshStore() : new IdbMeshStore(),
+    store: (store = nextMode === "sim" ? new MemoryMeshStore() : vault ? new SealedMeshStore(new IdbMeshStore(), vault) : new IdbMeshStore()),
+    keysProtected: !!vault,
+    seqStorage: {
+      // Older builds stored one number; newer ones a JSON map of per-channel counters.
+      load: () => {
+        const raw = safeGet(storage, keys.seq) ?? "";
+        try {
+          const v: unknown = JSON.parse(raw);
+          if (typeof v === "number" && Number.isInteger(v) && v >= 0) return v;
+          if (v && typeof v === "object") {
+            const out: Record<string, number> = {};
+            for (const [k, n] of Object.entries(v)) if (Number.isInteger(n) && (n as number) >= 0) out[k] = n as number;
+            return out;
+          }
+        } catch {
+          // Missing or corrupt: start again.
+        }
+        return {};
+      },
+      save: (seqs) => safeSet(storage, keys.seq, JSON.stringify(seqs)),
+    },
   });
   unsubscribe = service.subscribe(update);
   update(service.getSnapshot());
   await service.start();
+  if (gen !== generation) return;
+  // Power modes (C7): visibility and battery decide how hard the radio works.
+  const ble = bleTransport;
+  power = new PowerController({
+    apply: (m) => {
+      service?.setPowerMode(m);
+      void ble?.setPowerMode(m, LINKS_FOR[m]);
+    },
+    readBattery: async () => (ble ? ((await ble.readBattery()) ?? (await readWebBattery())) : readWebBattery()),
+  });
+  await power.start();
 }
 
 export async function stopMesh(options: { forget?: boolean } = {}): Promise<void> {
   generation++;
   const current = service;
   service = null;
+  power?.stop();
+  power = null;
+  bleTransport = null;
   unsubscribe?.();
   unsubscribe = null;
   simTransport = null;
@@ -160,6 +250,88 @@ export async function enableBluetooth(): Promise<void> {
 
 export function sendMeshText(text: string): void {
   service?.sendText(text);
+}
+
+/** Creates a channel and opens it. Returns its ID, or null if the mesh isn't running. */
+export async function createMeshChannel(opts: CreateChannelOptions): Promise<string | null> {
+  return service ? service.createChannel(opts) : null;
+}
+
+export async function joinMeshChannel(id: string, password?: string, note?: string): Promise<JoinResult> {
+  return service ? service.joinChannel(id, password, note) : "unknown";
+}
+
+export async function joinMeshChannelWithInvite(text: string, note?: string): Promise<JoinResult> {
+  return service ? service.joinWithInvite(text, note) : "unknown";
+}
+
+/** Admin actions on a private channel. Throw if not allowed. */
+export const meshChannelAdmin = {
+  approve: (id: string, key: string) => service?.approveJoin(id, key),
+  decline: (id: string, key: string) => service?.declineJoin(id, key),
+  remove: (id: string, key: string) => service?.removeMember(id, key),
+  setRole: (id: string, key: string, role: number) => service?.setMemberRole(id, key, role as 0 | 1 | 2 | 3),
+  rotate: (id: string) => service?.rotateChannelKey(id),
+  invite: (id: string) => service?.createInvite(id) ?? null,
+};
+
+/** Opens a direct conversation with someone (hex public key). */
+export function openMeshDirect(peerKey: string): void {
+  service?.openDirect(peerKey);
+}
+
+export function setMeshContactVerified(peerKey: string, verified: boolean): void {
+  service?.setContactVerified(peerKey, verified);
+}
+
+/**
+ * Panic wipe (docs/10 C6): deletes everything the mesh keeps on this device (mesh-db and every
+ * "mesh:" key, including the identity), then starts again as a new identity. Text Chat and
+ * Voice data aren't touched.
+ */
+export async function panicWipeMesh(): Promise<void> {
+  const m = mode;
+  const s = store;
+  const ble = bleTransport;
+  await stopMesh();
+  // Destroys the Keystore/Keychain key first: anything sealed with it is unreadable from here on.
+  await ble?.deleteStorageKey().catch(() => {});
+  store = null;
+  await s?.destroy().catch(() => {});
+  if (!s && (!m || m === "ble")) {
+    // Also covers a wipe before the mesh ever started on this device.
+    await new IdbMeshStore().destroy().catch(() => {});
+  }
+  for (const storage of [localStorage, sessionStorage]) {
+    try {
+      const keys: string[] = [];
+      for (let i = 0; i < storage.length; i++) {
+        const k = storage.key(i);
+        // Keep only the simulator's own switches, so a simulated tab comes back as a new phone.
+        if (k?.startsWith("mesh:") && k !== SIM_ENABLED_KEY && k !== SIM_POSITION_KEY) keys.push(k);
+      }
+      for (const k of keys) storage.removeItem(k);
+    } catch {
+      // Storage blocked: nothing saved there to wipe.
+    }
+  }
+  if (m) await startMesh(m);
+}
+
+export function leaveMeshChannel(id: string): void {
+  service?.leaveChannel(id);
+}
+
+/** Opens a channel, or the Lobby with "". */
+export function setMeshActiveChannel(id: string): void {
+  service?.setActiveChannel(id);
+}
+
+/** Turns the internet bridge on or off (restarts the mesh). */
+export async function setMeshBridgeEnabled(enabled: boolean): Promise<void> {
+  if (!mode) return;
+  safeSet(storageFor(mode), KEYS[mode].bridge, enabled ? null : "off");
+  await restartMesh();
 }
 
 export function setMeshNickname(nickname: string): void {

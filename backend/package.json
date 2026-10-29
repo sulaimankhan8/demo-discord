@@ -14,7 +14,8 @@
     "pull": "drizzle-kit pull",
     "generate": "drizzle-kit generate",
     "up": "drizzle-kit up",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:mesh-bridge": "node --test test/meshBridge.test.js"
   },
   "keywords": [],
   "author": "",
@@ -30,7 +31,8 @@
     "mediasoup": "^3.19.17",
     "p-limit": "^7.3.0",
     "pg": "^8.17.2",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.10",

@@ -34,7 +34,7 @@ export class TransportError extends Error {
 }
 
 export interface LinkTransport {
-  readonly kind: "ble" | "sim" | "memory";
+  readonly kind: "ble" | "sim" | "memory" | "bridge";
   start(events: LinkTransportEvents): Promise<void>;
   stop(): Promise<void>;
   send(linkId: string, frame: Uint8Array): void;

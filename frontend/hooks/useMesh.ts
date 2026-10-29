@@ -2,12 +2,22 @@
 
 import { useSyncExternalStore } from "react";
 import {
+  createMeshChannel,
   enableBluetooth,
   getMeshState,
   getServerMeshState,
   isNativeApp,
+  joinMeshChannel,
+  joinMeshChannelWithInvite,
+  meshChannelAdmin,
+  leaveMeshChannel,
+  openMeshDirect,
+  panicWipeMesh,
+  setMeshContactVerified,
   restartMesh,
   sendMeshText,
+  setMeshActiveChannel,
+  setMeshBridgeEnabled,
   setMeshNickname,
   setSimPosition,
   startMesh,
@@ -31,5 +41,15 @@ export function useMesh() {
     send: sendMeshText,
     setNickname: setMeshNickname,
     setSimPosition,
+    createChannel: createMeshChannel,
+    joinChannel: joinMeshChannel,
+    joinWithInvite: joinMeshChannelWithInvite,
+    channelAdmin: meshChannelAdmin,
+    leaveChannel: leaveMeshChannel,
+    setActiveChannel: setMeshActiveChannel,
+    setBridgeEnabled: setMeshBridgeEnabled,
+    openDirect: openMeshDirect,
+    setContactVerified: setMeshContactVerified,
+    panicWipe: panicWipeMesh,
   };
 }

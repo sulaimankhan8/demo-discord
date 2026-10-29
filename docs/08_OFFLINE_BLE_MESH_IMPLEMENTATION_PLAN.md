@@ -118,7 +118,7 @@ frontend/
 │   │   └── BleLinkTransport.ts          ✅ Phase 2: wraps the native plugin
 │   └── __tests__/                       # packet, fragment, router, 20-node simulation
 ├── vitest.config.mts                    ✅ `npm run test:mesh`
-├── ios/App/App/                         🟡 Phase 4 (Swift, inside the app; not compiled yet)
+├── ios/App/App/                         ✅ Phase 4 (Swift, inside the app)
 │   ├── BleMeshEngine.swift              # CoreBluetooth twin of BleMeshEngine.java
 │   ├── BleMeshPlugin.swift              # same BleMesh JS API as Android
 │   └── MainViewController.swift         # registers the plugin
@@ -264,15 +264,19 @@ Built as planned, with 28 unit and simulation tests (`npm run test:mesh`) and a 
 
 **Verified 2026-10-27:** two Android phones in airplane mode with Bluetooth on linked ("1 link") and exchanged messages, with the "Offline mesh is on" notification showing. To re-test: use two Android phones (Android 8+): install the APK on both, open Mesh, allow Bluetooth (and notifications), turn on airplane mode with Bluetooth still on, and send messages both ways. Then try three phones in a line for relaying, and the screen off on the middle phone (the "Offline mesh is on" notification keeps it relaying). Watch `adb logcat -s BleMesh` for radio errors.
 
-### Phase 3 — Multi-hop and late delivery 🟡 code done, needs a 3-phone test
+### Phase 3 — Multi-hop and late delivery ✅ done (tested on three phones)
 - Turn on relaying, `SYNC`, and the DM outbox.
 - **Done when:** with 3 phones in a line (A and C too far apart to connect directly), A's message reaches C. A phone that arrives late still gets the recent history.
+
+**Verified 2026-10-29:** three phones in a line (A–B–C, A and C out of direct range) — A's messages reached C through B, and the late-joiner catch-up worked.
 
 **Status:** Relaying (7-hop limit, dedup, jitter, rate limit) and `SYNC` were built and simulated in Phase 1 and run unchanged over Bluetooth since Phase 2. The DM outbox moves to Phase 5, because it needs DMs first. No new code was needed for this phase.
 
 **3-phone test:** put phone B in the middle, with A and C far enough apart that they can't connect directly (another room, ~30 m+ through walls). A's message should show on C as "2 hops" (tap the message to show its hop label), and B's **Relayed** count should go up. Then turn B's screen off and repeat. For late delivery: send a few messages between A and B, then bring C into range of B; C should get them.
 
-### Phase 4 — iOS plugin 🟡 written, needs a Mac build and test
+### Phase 4 — iOS plugin ✅ done (built on a Mac, iPhone ↔ Android tested)
+
+**Verified 2026-10-29:** built in Xcode and installed on an iPhone; iPhone ↔ Android mesh chat works both ways.
 - Write `BleMeshPlugin.swift` (CoreBluetooth: `CBPeripheralManager` + `CBCentralManager`) with the background modes.
 - **Done when:** iPhone ↔ Android chat works both ways, in the foreground and (at a lower rate) in the background.
 
@@ -293,6 +297,8 @@ Built as planned, with 28 unit and simulation tests (`npm run test:mesh`) and a 
 4. In Xcode: select the **App** target → *Signing & Capabilities* → pick your Team (a free Apple ID works; the app then expires after 7 days). Plug in the iPhone, pick it as the run target, and press Run. On the phone, trust the developer under Settings → General → VPN & Device Management.
 5. If Xcode reports Swift errors in the three mesh files, send them over and I'll fix them.
 6. Test: open Mesh on the iPhone and an Android phone (both in airplane mode with Bluetooth on) and chat both ways; then try with the iPhone app in the background.
+
+> **Next work:** channels, private channels, the internet bridge (replacing Phase 6), then Phases 5 and 7, are planned in [10_MESH_CHANNELS_IMPLEMENTATION_PLAN.md](10_MESH_CHANNELS_IMPLEMENTATION_PLAN.md) (steps C0–C7). Research behind it: [09_MESH_CHANNELS_RESEARCH.md](09_MESH_CHANNELS_RESEARCH.md).
 
 ### Phase 5 — Security
 - 5a: encrypted DMs, padding, fingerprint screen, panic wipe. 5b: Noise XX.

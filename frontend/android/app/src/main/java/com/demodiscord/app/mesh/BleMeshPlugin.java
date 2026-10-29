@@ -3,6 +3,8 @@ package com.demodiscord.app.mesh;
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -181,12 +183,72 @@ public class BleMeshPlugin extends Plugin implements BleMeshEngine.Listener {
         }
     }
 
+    /* ---------------- power, battery, storage key (docs/10 C7) ---------------- */
+
+    /** Lets the web side check which of these this build has, so older builds keep working. */
+    @PluginMethod
+    public void getCapabilities(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("power", true);
+        result.put("battery", true);
+        result.put("storageKey", true);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void setPowerMode(PluginCall call) {
+        String mode = call.getString("mode", BleMeshEngine.POWER_FOREGROUND);
+        int maxLinks = call.getInt("maxLinks", 7);
+        main.post(() -> {
+            engine.setPowerMode(mode, maxLinks);
+            call.resolve();
+        });
+    }
+
+    @PluginMethod
+    public void getBattery(PluginCall call) {
+        Intent status = getContext().registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        JSObject result = new JSObject();
+        if (status == null) {
+            call.reject("Battery level isn't available.", "UNAVAILABLE");
+            return;
+        }
+        int level = status.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+        int scale = status.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+        int plugged = status.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+        result.put("level", level >= 0 && scale > 0 ? (double) level / scale : 1.0);
+        result.put("charging", plugged == BatteryManager.BATTERY_STATUS_CHARGING || plugged == BatteryManager.BATTERY_STATUS_FULL);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void getStorageKey(PluginCall call) {
+        try {
+            JSObject result = new JSObject();
+            result.put("key", Base64.encodeToString(SecureKeyStore.getOrCreate(getContext()), Base64.NO_WRAP));
+            call.resolve(result);
+        } catch (Exception e) {
+            call.reject("Couldn't open the secure key store.", "UNAVAILABLE");
+        }
+    }
+
+    @PluginMethod
+    public void deleteStorageKey(PluginCall call) {
+        try {
+            SecureKeyStore.delete(getContext());
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Couldn't delete the storage key.", "UNAVAILABLE");
+        }
+    }
+
     private JSObject stateObject() {
         JSObject state = new JSObject();
         state.put("running", engine.isRunning());
         state.put("bluetoothOn", engine.isBluetoothOn());
         state.put("advertising", engine.isAdvertising());
         state.put("scanning", engine.isScanning());
+        state.put("powerMode", engine.getPowerMode());
         String error = engine.getLastError();
         if (error != null) state.put("error", error);
         JSArray links = new JSArray();

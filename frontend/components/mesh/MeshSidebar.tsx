@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { formatFingerprint } from "@/lib/mesh/identity";
 import type { MeshSessionState } from "@/lib/mesh/meshSession";
 import { avatarColor, hopLabel } from "./meshUi";
@@ -9,11 +10,20 @@ interface Props {
   onNickname: (name: string) => void;
   onSimPosition: (position: number | null) => void;
   onStopSim: () => void;
+  onBridge: (enabled: boolean) => void;
+  onDirect: (peerKey: string) => void;
+  onWipe: () => void;
 }
 
 const SIM_POSITIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-export default function MeshSidebar({ state, onNickname, onSimPosition, onStopSim }: Props) {
+export default function MeshSidebar({ state, onNickname, onSimPosition, onStopSim, onBridge, onDirect, onWipe }: Props) {
+  const [confirmWipe, setConfirmWipe] = useState(false);
+  useEffect(() => {
+    if (!confirmWipe) return;
+    const t = setTimeout(() => setConfirmWipe(false), 5000);
+    return () => clearTimeout(t);
+  }, [confirmWipe]);
   const { me, peers, stats, mode } = state;
 
   return (
@@ -75,6 +85,16 @@ export default function MeshSidebar({ state, onNickname, onSimPosition, onStopSi
                     #{p.fingerprint.slice(0, 4)} · {hopLabel(p.hops)}
                   </div>
                 </div>
+                <button
+                  onClick={() => onDirect(p.key)}
+                  aria-label={`Message ${p.nickname}`}
+                  title={`Message ${p.nickname}`}
+                  className="shrink-0 p-1 rounded text-[#6D737F] hover:text-white hover:bg-white/[0.06] cursor-pointer"
+                >
+                  <svg className="w-3.5 h-3.5 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 5h16v11H8l-4 4V5z" />
+                  </svg>
+                </button>
               </div>
             ))}
           </div>
@@ -114,9 +134,59 @@ export default function MeshSidebar({ state, onNickname, onSimPosition, onStopSi
         </section>
       )}
 
+      {/* Internet bridge */}
+      {state.bridgeAvailable && (
+        <section>
+          <SectionTitle>Internet bridge</SectionTitle>
+          <div className="px-2 mt-1 space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-1.5 text-[11px] text-[#DBDEE1]">
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    state.bridge === "up" ? "bg-[#23A55A]" : state.bridge === "connecting" ? "bg-[#F0B232]" : "bg-[#6D737F]"
+                  }`}
+                />
+                {!state.bridgeEnabled
+                  ? "Off"
+                  : state.bridge === "up"
+                    ? "Connected"
+                    : state.bridge === "connecting"
+                      ? "Connecting…"
+                      : "No internet"}
+              </span>
+              <button
+                onClick={() => onBridge(!state.bridgeEnabled)}
+                className="px-2 py-0.5 rounded text-[10px] font-semibold text-[#949BA4] bg-white/[0.04] hover:bg-white/[0.08] hover:text-[#DBDEE1] transition cursor-pointer"
+              >
+                {state.bridgeEnabled ? "Turn off" : "Turn on"}
+              </button>
+            </div>
+            <p className="text-[10px] text-[#6D737F] leading-snug">
+              Carries 🌐 channels between groups far apart whenever this phone has internet. The server sees your IP
+              address, your key and channel tags, but never what locked channels say.
+            </p>
+          </div>
+        </section>
+      )}
+
       {/* Stats */}
       <section className="mt-auto">
         <SectionTitle>This device</SectionTitle>
+        <button
+          onClick={() => {
+            if (!confirmWipe) return setConfirmWipe(true);
+            setConfirmWipe(false);
+            onWipe();
+          }}
+          className={`mx-2 mb-2 w-[calc(100%-1rem)] px-2 py-1 rounded text-[11px] font-semibold transition cursor-pointer ${
+            confirmWipe
+              ? "bg-[#F23F43] text-white"
+              : "text-[#949BA4] bg-white/[0.04] hover:bg-[#F23F43]/15 hover:text-[#F23F43]"
+          }`}
+          title="Deletes all mesh messages, channels, keys and your identity on this device"
+        >
+          {confirmWipe ? "Tap again to wipe everything" : "Wipe mesh data"}
+        </button>
         <dl className="px-2 mt-1 grid grid-cols-2 gap-y-0.5 text-[10px] font-mono text-[#6D737F]">
           <dt>Links</dt>
           <dd className="text-right text-[#DBDEE1]">{state.links}</dd>
@@ -126,7 +196,20 @@ export default function MeshSidebar({ state, onNickname, onSimPosition, onStopSi
           <dd className="text-right text-[#DBDEE1]">{stats.relayed}</dd>
           <dt>Dropped</dt>
           <dd className="text-right text-[#DBDEE1]">{stats.dropped}</dd>
+          <dt>Power</dt>
+          <dd className="text-right text-[#DBDEE1]">
+            {state.power === "low" ? "low battery" : state.power === "background" ? "background" : state.power ? "normal" : "—"}
+          </dd>
+          <dt>Keys</dt>
+          <dd className="text-right text-[#DBDEE1]" title="Whether this device's mesh keys are sealed with the phone's secure key store">
+            {state.keysProtected ? "device-sealed" : "not sealed"}
+          </dd>
         </dl>
+        {state.power === "low" && (
+          <p className="px-2 mt-1 text-[10px] text-[#6D737F] leading-snug">
+            Battery is low: scanning less, fewer links, and not carrying messages for channels you&apos;re not in.
+          </p>
+        )}
       </section>
     </aside>
   );

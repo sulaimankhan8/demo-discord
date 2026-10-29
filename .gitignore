@@ -23,3 +23,6 @@ pnpm-debug.log*
 # Node
 # =====================
 node_modules/
+
+# Local dev HTTPS certs
+certs/

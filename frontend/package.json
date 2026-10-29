@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:lan": "next dev -H 0.0.0.0 --experimental-https --experimental-https-key ../certs/key.pem --experimental-https-cert ../certs/cert.pem",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test:mesh": "vitest run",
+    "bench:mesh": "vitest run --config vitest.bench.config.mts",
     "build:app": "dotenv -e .env.capacitor -v BUILD_TARGET=capacitor -- next build && cap sync android",
     "app:open": "cap open android",
     "app:run": "cap run android",
@@ -18,6 +20,7 @@
     "@capacitor/android": "^8.5.3",
     "@capacitor/core": "^8.5.3",
     "@capacitor/ios": "^8.5.3",
+    "@noble/ciphers": "^2.4.0",
     "@noble/curves": "^2.4.0",
     "@noble/hashes": "^2.4.0",
     "idb": "^8.0.4",
@@ -36,6 +39,7 @@
     "dotenv-cli": "^11.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.4",
+    "fake-indexeddb": "^6.2.6",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.7"

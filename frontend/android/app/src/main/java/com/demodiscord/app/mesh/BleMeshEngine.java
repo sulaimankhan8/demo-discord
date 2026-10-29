@@ -125,6 +125,15 @@ public class BleMeshEngine {
     private int maxLinks = 7;
     private byte[] nodeId = new byte[NODE_ID_BYTES];
 
+    /* Power modes (docs/10 C7): the web side picks one from app visibility and battery level. */
+    public static final String POWER_FOREGROUND = "foreground";
+    public static final String POWER_BACKGROUND = "background";
+    public static final String POWER_LOW = "low";
+    /** Scanning in the background and on low battery: 5 s on, 10 s off. */
+    private static final long DUTY_ON_MS = 5_000;
+    private static final long DUTY_OFF_MS = 10_000;
+    private String powerMode = POWER_FOREGROUND;
+
     private BluetoothManager manager;
     private BluetoothAdapter adapter;
     private BluetoothGattServer server;
@@ -190,6 +199,7 @@ public class BleMeshEngine {
 
     private void stopRadio() {
         handler.removeCallbacks(scanRestart);
+        handler.removeCallbacks(dutyCycle);
         stopScan();
         stopAdvertising();
         for (Link link : new ArrayList<>(links.values())) removeLink(link);
@@ -208,11 +218,50 @@ public class BleMeshEngine {
         @Override
         public void run() {
             if (!running) return;
-            stopScan();
-            startScan();
+            if (scanning) { // not during the off part of a duty cycle
+                stopScan();
+                startScan();
+            }
             handler.postDelayed(this, SCAN_RESTART_MS);
         }
     };
+
+    /** Background / low-battery scanning: alternate DUTY_ON_MS scanning with DUTY_OFF_MS off. */
+    private final Runnable dutyCycle = new Runnable() {
+        @Override
+        public void run() {
+            if (!running || POWER_FOREGROUND.equals(powerMode)) return;
+            if (scanning) {
+                stopScan();
+                handler.postDelayed(this, DUTY_OFF_MS);
+            } else {
+                startScan();
+                handler.postDelayed(this, DUTY_ON_MS);
+            }
+            listener.onStateChanged();
+        }
+    };
+
+    /**
+     * Switches power mode. Foreground scans all the time; background and low scan 5 s in every
+     * 15 s, more gently. maxLinks caps new links (low battery uses fewer); existing links stay.
+     */
+    public void setPowerMode(String mode, int maxLinks) {
+        String next = POWER_BACKGROUND.equals(mode) || POWER_LOW.equals(mode) ? mode : POWER_FOREGROUND;
+        this.maxLinks = Math.max(1, maxLinks);
+        if (next.equals(powerMode)) return;
+        powerMode = next;
+        if (!running) return;
+        handler.removeCallbacks(dutyCycle);
+        stopScan();
+        startScan();
+        if (!POWER_FOREGROUND.equals(powerMode)) handler.postDelayed(dutyCycle, DUTY_ON_MS);
+        listener.onStateChanged();
+    }
+
+    public String getPowerMode() {
+        return powerMode;
+    }
 
     /* ---------------- state ---------------- */
 
@@ -513,8 +562,11 @@ public class BleMeshEngine {
         List<ScanFilter> filters = Collections.singletonList(
             new ScanFilter.Builder().setServiceUuid(new ParcelUuid(serviceUuid)).build()
         );
+        int scanMode = POWER_LOW.equals(powerMode)
+            ? ScanSettings.SCAN_MODE_LOW_POWER
+            : POWER_BACKGROUND.equals(powerMode) ? ScanSettings.SCAN_MODE_BALANCED : ScanSettings.SCAN_MODE_LOW_LATENCY;
         ScanSettings settings = new ScanSettings.Builder()
-            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .setScanMode(scanMode)
             .build();
         try {
             scanner.startScan(filters, settings, scanCallback);

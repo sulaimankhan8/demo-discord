@@ -16,6 +16,11 @@ public class BleMeshPlugin: CAPPlugin, CAPBridgedPlugin, BleMeshEngineDelegate {
         CAPPluginMethod(name: "send", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getState", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "enableBluetooth", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getCapabilities", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setPowerMode", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getBattery", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getStorageKey", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "deleteStorageKey", returnType: CAPPluginReturnPromise),
     ]
 
     private let engine = BleMeshEngine()
@@ -100,12 +105,52 @@ public class BleMeshPlugin: CAPPlugin, CAPBridgedPlugin, BleMeshEngineDelegate {
         }
     }
 
+    // MARK: - Power, battery, storage key (docs/10 C7)
+
+    /// Lets the web side check which of these this build has, so older builds keep working.
+    @objc func getCapabilities(_ call: CAPPluginCall) {
+        call.resolve(["power": true, "battery": true, "storageKey": true])
+    }
+
+    @objc func setPowerMode(_ call: CAPPluginCall) {
+        let mode = call.getString("mode") ?? "foreground"
+        let maxLinks = call.getInt("maxLinks") ?? 7
+        DispatchQueue.main.async {
+            self.engine.setPowerMode(mode, maxLinks: maxLinks)
+            call.resolve()
+        }
+    }
+
+    @objc func getBattery(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            let device = UIDevice.current
+            device.isBatteryMonitoringEnabled = true
+            let level = device.batteryLevel // -1 when unknown (e.g. the simulator)
+            let charging = device.batteryState == .charging || device.batteryState == .full
+            call.resolve(["level": level < 0 ? 1.0 : Double(level), "charging": charging])
+        }
+    }
+
+    @objc func getStorageKey(_ call: CAPPluginCall) {
+        do {
+            call.resolve(["key": try SecureKeyStore.getOrCreate().base64EncodedString()])
+        } catch {
+            call.reject("Couldn't open the Keychain.", "UNAVAILABLE")
+        }
+    }
+
+    @objc func deleteStorageKey(_ call: CAPPluginCall) {
+        SecureKeyStore.delete()
+        call.resolve()
+    }
+
     private func stateObject() -> [String: Any] {
         var state: [String: Any] = [
             "running": engine.running,
             "bluetoothOn": engine.bluetoothOn,
             "advertising": engine.advertising,
             "scanning": engine.scanning,
+            "powerMode": engine.powerMode,
             "links": engine.describeLinks(),
         ]
         if let error = engine.lastError { state["error"] = error }

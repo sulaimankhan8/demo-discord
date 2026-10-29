@@ -59,6 +59,52 @@ final class BleMeshEngine: NSObject {
     private(set) var running = false
     private(set) var advertising = false
     private(set) var scanning = false
+
+    // Power modes (docs/10 C7): the web side picks one from app visibility and battery level.
+    // iOS already throttles background scanning a lot; the duty cycle saves a bit more while the
+    // app is open in the background or the battery is low.
+    private(set) var powerMode = "foreground"
+    private var dutyTimer: Timer?
+    /// True during the "off" part of a duty cycle.
+    private var scanPaused = false
+    private static let dutyOnSeconds: TimeInterval = 5
+    private static let dutyOffSeconds: TimeInterval = 10
+
+    /// Foreground scans all the time; background and low scan 5 s in every 15 s. maxLinks caps
+    /// new links (low battery uses fewer); existing links stay.
+    func setPowerMode(_ mode: String, maxLinks: Int) {
+        let next = (mode == "background" || mode == "low") ? mode : "foreground"
+        self.maxLinks = max(1, maxLinks)
+        guard next != powerMode else { return }
+        powerMode = next
+        dutyTimer?.invalidate()
+        dutyTimer = nil
+        scanPaused = false
+        guard running else { return }
+        if next != "foreground" { scheduleDuty(on: true) }
+        startScanIfReady()
+        delegate?.meshStateChanged()
+    }
+
+    private func scheduleDuty(on: Bool) {
+        dutyTimer?.invalidate()
+        let wait = on ? Self.dutyOnSeconds : Self.dutyOffSeconds
+        dutyTimer = Timer.scheduledTimer(withTimeInterval: wait, repeats: false) { [weak self] _ in
+            guard let self = self, self.running, self.powerMode != "foreground" else { return }
+            if on {
+                // End of the "on" part: pause scanning.
+                self.scanPaused = true
+                if self.scanning { self.centralManager?.stopScan() }
+                self.scanning = false
+                self.scheduleDuty(on: false)
+            } else {
+                self.scanPaused = false
+                self.startScanIfReady()
+                self.scheduleDuty(on: true)
+            }
+            self.delegate?.meshStateChanged()
+        }
+    }
     private(set) var lastError: String?
 
     private var centralManager: CBCentralManager?
@@ -167,6 +213,9 @@ final class BleMeshEngine: NSObject {
     func stop() {
         guard running else { return }
         running = false
+        dutyTimer?.invalidate()
+        dutyTimer = nil
+        scanPaused = false
         if scanning { centralManager?.stopScan() }
         scanning = false
         if advertising { peripheralManager?.stopAdvertising() }
@@ -334,7 +383,7 @@ final class BleMeshEngine: NSObject {
     // MARK: - Central role (scanning + connecting)
 
     private func startScanIfReady() {
-        guard running, !scanning, let cm = centralManager, cm.state == .poweredOn else { return }
+        guard running, !scanning, !scanPaused, let cm = centralManager, cm.state == .poweredOn else { return }
         // Duplicates on, so we keep seeing phones we're waiting on (the 15 s fallback needs it).
         cm.scanForPeripherals(withServices: [serviceUUID], options: [CBCentralManagerScanOptionAllowDuplicatesKey: true])
         scanning = true

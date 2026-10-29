@@ -1,109 +1,15 @@
-// Simulated mesh: many MeshService nodes connected by in-memory links. Deliveries run from a
-// single queue so each test is deterministic.
+// Mesh behaviour on simulated phones (see sim.ts), plus router security checks.
 
 import { describe, expect, it } from "vitest";
 import { randomBytes } from "../bytes";
 import { signPacket } from "../crypto";
 import { createIdentity } from "../identity";
-import { encodePacket, MAX_TTL, PacketType, PROTOCOL_VERSION } from "../packet";
+import { encodePacket, MAX_TTL, PacketType, PROTOCOL_VERSION, type MeshPacket } from "../packet";
 import { encodeMessagePayload } from "../payloads";
 import { MeshRouter, type DeliveredMessage } from "../router";
-import { MeshService } from "../MeshService";
-import type { LinkTransport, LinkTransportEvents } from "../transports/LinkTransport";
-
-class SimNetwork {
-  queue: (() => void)[] = [];
-  nodes = new Map<string, SimNode>();
-  edges = new Set<string>();
-  framesSent = 0;
-
-  async addNode(name: string): Promise<SimNode> {
-    const node = new SimNode(name, this);
-    this.nodes.set(name, node);
-    await node.service.start();
-    return node;
-  }
-
-  async addNodes(count: number): Promise<SimNode[]> {
-    const out: SimNode[] = [];
-    for (let i = 0; i < count; i++) out.push(await this.addNode(`n${i}`));
-    return out;
-  }
-
-  connect(a: SimNode, b: SimNode, maxFrameBytes = 180): void {
-    this.edges.add(edgeKey(a.name, b.name));
-    a.transport.events!.linkUp({ linkId: b.name, maxFrameBytes });
-    b.transport.events!.linkUp({ linkId: a.name, maxFrameBytes });
-  }
-
-  connected(a: string, b: string): boolean {
-    return this.edges.has(edgeKey(a, b));
-  }
-
-  run(maxSteps = 1_000_000): void {
-    let steps = 0;
-    while (this.queue.length) {
-      if (++steps > maxSteps) throw new Error("simulation did not settle");
-      this.queue.shift()!();
-    }
-  }
-}
-
-function edgeKey(a: string, b: string): string {
-  return a < b ? `${a}|${b}` : `${b}|${a}`;
-}
-
-class SimTransport implements LinkTransport {
-  readonly kind = "memory" as const;
-  events: LinkTransportEvents | null = null;
-  constructor(
-    private readonly name: string,
-    private readonly net: SimNetwork,
-  ) {}
-  async start(events: LinkTransportEvents) {
-    this.events = events;
-  }
-  async stop() {
-    this.events = null;
-  }
-  send(linkId: string, frame: Uint8Array) {
-    if (!this.net.connected(this.name, linkId)) return;
-    this.net.framesSent++;
-    const copy = frame.slice();
-    this.net.queue.push(() => this.net.nodes.get(linkId)?.transport.events?.data(this.name, copy));
-  }
-}
-
-class SimNode {
-  readonly transport: SimTransport;
-  readonly service: MeshService;
-  constructor(
-    readonly name: string,
-    net: SimNetwork,
-  ) {
-    this.transport = new SimTransport(name, net);
-    this.service = new MeshService({
-      transport: this.transport,
-      identity: createIdentity(),
-      nickname: name,
-      announceIntervalMs: 0,
-      relayJitterMs: [0, 0],
-      maxRelaysPerSecond: 1_000_000,
-      schedule: (fn) => net.queue.push(fn),
-    });
-  }
-  received(text: string) {
-    return this.service.getSnapshot().messages.filter((m) => m.text === text);
-  }
-}
-
-/** Small seeded PRNG so random topologies are the same on every run. */
-function prng(seed: number) {
-  return () => {
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    return seed / 2 ** 32;
-  };
-}
+import { MeshService, type SeqStorage } from "../MeshService";
+import type { LinkTransport } from "../transports/LinkTransport";
+import { prng, SimNetwork, type SimNode } from "./sim";
 
 describe("mesh simulation", () => {
   it("relays a message down a chain of 5 phones", async () => {
@@ -235,7 +141,7 @@ describe("router security", () => {
           timestamp,
           messageId: randomBytes(8),
           senderKey: author.publicKey,
-          payload: encodeMessagePayload({ nickname: "x", text }),
+          payload: encodeMessagePayload({ senderSeq: 1, nickname: "x", text }),
         },
         author.secretKey,
       ),
@@ -315,5 +221,119 @@ describe("service lifecycle", () => {
     expect(started).toBe(1);
     expect(stopped).toBe(1);
     expect(service.getSnapshot().status).toBe("stopped");
+  });
+});
+
+/** A signed packet from someone outside the simulation. */
+function foreignPacket(extra: Partial<MeshPacket>): Uint8Array {
+  const author = createIdentity();
+  return encodePacket(
+    signPacket(
+      {
+        version: PROTOCOL_VERSION,
+        type: PacketType.Message,
+        ttl: MAX_TTL,
+        timestamp: Date.now(),
+        messageId: randomBytes(8),
+        senderKey: author.publicKey,
+        payload: encodeMessagePayload({ senderSeq: 1, nickname: "x", text: "foreign" }),
+        ...extra,
+      },
+      author.secretKey,
+    ),
+  );
+}
+
+describe("protocol v2 forward compatibility", () => {
+  async function chain() {
+    const net = new SimNetwork();
+    const n = await net.addNodes(3);
+    net.connect(n[0], n[1]);
+    net.connect(n[1], n[2]);
+    net.run();
+    return { net, n };
+  }
+  const received = (node: SimNode) => node.service.getSnapshot().stats.received;
+
+  it("relays a packet of unknown type 99 without delivering it", async () => {
+    const { net, n } = await chain();
+    const before = n.map(received);
+    n[1].inject(n[0].name, foreignPacket({ type: 99, payload: new Uint8Array([1, 2, 3]) }));
+    net.run();
+    expect(received(n[1])).toBe(before[1] + 1);
+    expect(received(n[2])).toBe(before[2] + 1); // reached n2 through n1
+    expect(received(n[0])).toBe(before[0]); // not sent back where it came from
+    for (const node of n) expect(node.service.getSnapshot().messages).toHaveLength(0);
+  });
+
+  it("relays packets with unknown flag bits", async () => {
+    const { net, n } = await chain();
+    const before = received(n[2]);
+    n[1].inject(n[0].name, foreignPacket({ unknownFlags: 0x80 }));
+    net.run();
+    expect(received(n[2])).toBe(before + 1);
+    expect(n[2].received("foreign")).toHaveLength(0);
+  });
+
+  it("never relays an unknown link-local packet", async () => {
+    const { net, n } = await chain();
+    const before = received(n[2]);
+    n[1].inject(n[0].name, foreignPacket({ type: 99, linkLocal: true, ttl: 1 }));
+    net.run();
+    expect(received(n[1])).toBeGreaterThan(0);
+    expect(received(n[2])).toBe(before);
+  });
+
+  it("relays messages for channels it has not joined, without showing them", async () => {
+    const { net, n } = await chain();
+    const before = received(n[2]);
+    n[1].inject(n[0].name, foreignPacket({ channelTag: randomBytes(16) }));
+    net.run();
+    expect(received(n[2])).toBe(before + 1);
+    for (const node of n) expect(node.received("foreign")).toHaveLength(0);
+  });
+});
+
+describe("sender sequence numbers", () => {
+  it("counts up per message and survives a restart (and reads the old single-number format)", async () => {
+    let saved: Record<string, number> | number = 5; // what older builds stored
+    const seqStorage: SeqStorage = { load: () => saved, save: (n) => void (saved = n) };
+    const identity = createIdentity();
+    const service = () =>
+      new MeshService({
+        transport: { kind: "memory", start: async () => {}, stop: async () => {}, send: () => {} },
+        identity,
+        nickname: "me",
+        seqStorage,
+        announceIntervalMs: 0,
+      });
+
+    const first = service();
+    await first.start();
+    first.sendText("one");
+    first.sendText("two");
+    await first.stop();
+    expect(saved).toEqual({ "": 7 }); // Lobby counter, carried on from 5
+
+    const second = service();
+    await second.start();
+    second.sendText("three");
+    expect(saved).toEqual({ "": 8 });
+  });
+
+  it("carries the sender's seq on the wire", () => {
+    const delivered: number[] = [];
+    const router = new MeshRouter({
+      identity: createIdentity(),
+      nickname: "probe",
+      links: () => [],
+      send: () => {},
+      onMessage: (m) => delivered.push(m.senderSeq),
+    });
+    router.handleIncoming(
+      "x",
+      foreignPacket({ payload: encodeMessagePayload({ senderSeq: 77, nickname: "y", text: "z" }) }),
+    );
+    expect(delivered).toEqual([77]);
   });
 });

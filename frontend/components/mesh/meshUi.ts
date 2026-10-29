@@ -21,3 +21,15 @@ export function formatTime(timestamp: number): string {
 }
 
 export const MESH_ACCENT = "#F0B232";
+
+export function kindLabel(kind: number): string {
+  return ["", "Public", "Password", "Private", "Hidden"][kind] ?? "Channel";
+}
+
+/** "just now", "5 min ago", "2 h ago". */
+export function timeAgo(timestamp: number, now = Date.now()): string {
+  const min = Math.floor((now - timestamp) / 60_000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min} min ago`;
+  return `${Math.floor(min / 60)} h ago`;
+}
