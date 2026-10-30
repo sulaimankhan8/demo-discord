@@ -93,7 +93,55 @@ Edit `frontend/.env.capacitor` and set the backend address the phone should use.
 3. In Xcode: select the **App** target → *Signing & Capabilities* → choose your **Team** (a free Apple ID works, but the app expires after 7 days).
 4. Plug in the iPhone, select it as the run target, and press **Run** (▶). On the phone, trust the developer under *Settings → General → VPN & Device Management*.
 
-**Shareable `.ipa` file:** needs a paid Apple Developer account. In Xcode, pick *Any iOS Device* → *Product → Archive* → *Distribute App* (Ad Hoc or TestFlight).
+### 📤 Sharing the iOS app
+
+| Way | Cost | Who can install | How long it lasts |
+|---|---|---|---|
+| Xcode → Run (above) | Free | Phones plugged into your Mac | 7 days, then Run again |
+| **AltStore** (below) | Free | Anyone with an Apple ID and a PC or Mac | 7 days, refreshed automatically over Wi-Fi |
+| TestFlight / Ad Hoc | $99/year Apple Developer account | Up to 10,000 testers by link (TestFlight) | 90 days (TestFlight), 1 year (Ad Hoc) |
+
+> The website works in Safari for chat and voice, but **not** for the Bluetooth mesh: Safari can't use Bluetooth, so mesh on iPhone needs the app.
+
+#### Free: share an `.ipa` with AltStore
+
+With a free Apple ID you can't send someone an `.ipa` that installs by tapping it. With AltStore, each person installs it with **their own** Apple ID, and AltStore signs it on their phone.
+
+**Step 1 — Make the `.ipa` (you, on the Mac).** Build it unsigned; AltStore signs it later. From `frontend/`:
+```bash
+npm run build:ios
+cd ios/App
+xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO
+mkdir -p Payload
+cp -R build/Build/Products/Release-iphoneos/App.app Payload/
+zip -r DemoDiscord.ipa Payload
+rm -rf Payload
+```
+This gives you `frontend/ios/App/DemoDiscord.ipa`. Send it to testers by AirDrop, Google Drive, WhatsApp or similar. An `.ipa` is just a zip file with a `Payload/App.app` folder inside.
+
+> Set the backend in `.env.capacitor` to a server the testers can reach (your deployed `https` server) before building. Your home Wi-Fi IP only works on your Wi-Fi.
+
+**Step 2 — Install AltStore (each tester, once).** They need a Windows PC or Mac and a USB cable.
+1. **Windows:** install **iTunes** and **iCloud** from apple.com, *not* the Microsoft Store versions. **Mac:** nothing extra.
+2. Download and install **AltServer** from [altstore.io](https://altstore.io) and start it (it sits in the system tray / menu bar).
+3. Plug in the iPhone, unlock it, and tap **Trust** on the phone.
+4. Click the AltServer icon → **Install AltStore** → pick the iPhone → sign in with an Apple ID. A spare Apple ID is fine.
+5. On the iPhone: *Settings → General → VPN & Device Management* → trust that Apple ID.
+6. On iOS 16 or newer: *Settings → Privacy & Security → Developer Mode* → turn it on and restart.
+
+**Step 3 — Install the app (each tester).**
+1. Save `DemoDiscord.ipa` to the iPhone's **Files** app.
+2. Open **AltStore** → **My Apps** → **+** → pick `DemoDiscord.ipa`. It installs in under a minute.
+3. Open the app and allow Bluetooth, microphone and local network when it asks.
+
+**Keeping it working:**
+- The app stops opening after **7 days**. AltStore refreshes it automatically when the phone and the computer running AltServer are on the same Wi-Fi. They can also open AltStore → **My Apps** → **Refresh All**.
+- A free Apple ID allows **3 apps** at once, and AltStore itself counts as one.
+- **New version:** send the new `.ipa` and install it the same way. It replaces the old one and keeps its data.
+- [SideStore](https://sidestore.io) works the same way but refreshes without a computer after the first setup.
+
+#### Paid: TestFlight
+With an Apple Developer account, in Xcode pick *Any iOS Device* → *Product → Archive* → *Distribute App* → **TestFlight** (or **Ad Hoc** for specific registered phones). Testers install it from Apple's TestFlight app using a link.
 
 ### ⬇️ APK download on the website
 
