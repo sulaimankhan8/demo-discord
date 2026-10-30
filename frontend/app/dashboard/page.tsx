@@ -45,6 +45,11 @@ export default function Dashboard() {
           </div>
         </header>
 
+        {/* Get the Android app */}
+        <div className="max-w-4xl w-full mx-auto mt-6">
+          <DownloadApp />
+        </div>
+
         {/* CHANNEL SELECTION CARDS */}
         <main className="max-w-4xl w-full mx-auto my-auto py-8">
           <div className="mb-6">
@@ -111,10 +116,6 @@ export default function Dashboard() {
             </Link>
           </div>
         </main>
-
-        <div className="max-w-4xl w-full mx-auto mb-4">
-          <DownloadApp />
-        </div>
 
         {/* FOOTER */}
         <footer className="max-w-4xl w-full mx-auto text-center text-[11px] text-muted font-mono pt-4 border-t border-white/[0.05]">

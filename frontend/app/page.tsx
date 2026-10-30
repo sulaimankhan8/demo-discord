@@ -19,21 +19,42 @@ export default function Page() {
     return colors[Math.abs(hash) % colors.length];
   };
 
-  const login = async () => {
-    if (!username.trim()) {
+  /** Saves a local-only user (no backend) and opens the offline mesh. */
+  const enterOffline = (name: string) => {
+    localStorage.setItem(
+      "user",
+      JSON.stringify({ id: "usr-" + Math.random().toString(36).substring(2, 9), username: name }),
+    );
+    soundFx.playJoin();
+    router.push("/mesh");
+  };
+
+  const login = async (offline = false) => {
+    const name = username.trim();
+    if (!name) {
       setError("Please enter a display username.");
       return;
     }
 
-    setLoading(true);
     setError(null);
     soundFx.playPop();
 
+    // No internet, or asked for offline: skip the backend entirely.
+    if (offline || (typeof navigator !== "undefined" && navigator.onLine === false)) {
+      enterOffline(name);
+      return;
+    }
+
+    setLoading(true);
+    // Don't hang when the backend is unreachable: give up after 4 s and go offline.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: username.trim() }),
+        body: JSON.stringify({ username: name }),
+        signal: controller.signal,
       });
 
       if (!res.ok) throw new Error(`Status ${res.status}`);
@@ -42,22 +63,22 @@ export default function Page() {
       localStorage.setItem("user", JSON.stringify(user));
       soundFx.playJoin();
       router.push("/chat");
-    } catch (err: any) {
-      console.warn("Using guest local fallback session:", err);
-      const guestUser = {
-        id: "usr-" + Math.random().toString(36).substring(2, 9),
-        username: username.trim(),
-      };
-      localStorage.setItem("user", JSON.stringify(guestUser));
-      soundFx.playJoin();
-      router.push("/chat");
+    } catch (err) {
+      console.warn("Backend unreachable, entering offline mesh:", err);
+      enterOffline(name);
     } finally {
+      clearTimeout(timer);
       setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-canvas flex flex-col items-center justify-center p-4 font-sans text-ink select-none relative">
+      {/* Get the Android app: first thing on the page */}
+      <div className="w-full max-w-[400px] mb-4 relative z-10">
+        <DownloadApp />
+      </div>
+
       {/* Studio Hairline Card */}
       <div className="w-full max-w-[400px] bg-surface-1 border border-white/[0.08] rounded-2xl p-8 shadow-2xl shadow-black/80 relative z-10">
         {/* Brand Header */}
@@ -99,7 +120,7 @@ export default function Page() {
                 setUsername(e.target.value);
                 if (error) setError(null);
               }}
-              onKeyDown={(e) => e.key === "Enter" && login()}
+              onKeyDown={(e) => e.key === "Enter" && void login()}
               placeholder="e.g. Alex, Neo, Trinity"
               maxLength={24}
               className="w-full px-3.5 py-2.5 bg-surface-0 border border-white/[0.08] focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-sm text-white placeholder-muted outline-none transition font-medium"
@@ -108,7 +129,7 @@ export default function Page() {
           </div>
 
           <button
-            onClick={login}
+            onClick={() => void login()}
             disabled={loading || !username.trim()}
             className="w-full py-2.5 bg-accent hover:bg-accent-hover brut disabled:opacity-50 disabled:cursor-not-allowed text-on-accent font-semibold rounded-lg text-sm transition shadow-md shadow-accent/20 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
           >
@@ -118,6 +139,17 @@ export default function Page() {
               <span>Enter Workspace →</span>
             )}
           </button>
+
+          <button
+            onClick={() => void login(true)}
+            disabled={!username.trim()}
+            className="w-full py-2.5 bg-surface-0 hover:bg-surface-3 border border-mesh/40 text-mesh font-semibold rounded-lg text-sm transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <span>Enter offline · Bluetooth mesh</span>
+          </button>
+          <p className="text-[11px] text-muted text-center leading-relaxed">
+            No internet or server? Offline works phone to phone. If the server doesn&apos;t answer in 4 seconds, you&apos;re taken offline automatically.
+          </p>
         </div>
 
         {/* Telemetry Footer */}
@@ -128,10 +160,6 @@ export default function Page() {
           </div>
           <span>Mediasoup v3 • Redis</span>
         </div>
-      </div>
-
-      <div className="w-full max-w-[400px] mt-4 relative z-10">
-        <DownloadApp />
       </div>
     </div>
   );

@@ -260,6 +260,7 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
         </Link>
 
         <div className="mt-auto flex flex-col items-center gap-2">
+          <DownloadApp variant="icon" />
           {/* Logout / Exit */}
           <button
             onClick={logout}
