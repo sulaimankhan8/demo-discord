@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { soundFx } from "@/lib/soundFx";
+import DownloadApp from "@/components/DownloadApp";
 
 export default function Page() {
   const [username, setUsername] = useState("");
@@ -127,6 +128,10 @@ export default function Page() {
           </div>
           <span>Mediasoup v3 • Redis</span>
         </div>
+      </div>
+
+      <div className="w-full max-w-[400px] mt-4 relative z-10">
+        <DownloadApp />
       </div>
     </div>
   );

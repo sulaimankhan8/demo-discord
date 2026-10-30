@@ -95,6 +95,21 @@ Edit `frontend/.env.capacitor` and set the backend address the phone should use.
 
 **Shareable `.ipa` file:** needs a paid Apple Developer account. In Xcode, pick *Any iOS Device* → *Product → Archive* → *Distribute App* (Ad Hoc or TestFlight).
 
+### ⬇️ APK download on the website
+
+The web version shows a **Download APK** button (login page, Hub, and a download icon in the phone top bar) once an APK has been published. Inside the installed app the button is hidden, and iPhone visitors are told the app is Android only.
+
+```bash
+cd frontend
+npm run apk        # web build -> cap sync -> Gradle assembleDebug -> copy to public/downloads/
+npm run apk:copy   # only copy the last built APK into public/downloads/
+```
+
+- `npm run apk` finds a JDK 21 by itself (`JAVA_HOME` if it is 21, otherwise Android Studio's download in `~/.jdks`).
+- It writes `public/downloads/demo-discord.apk` and `public/downloads/apk.json` (version and size, shown on the button). Run it before `npm run build` when deploying the website.
+- `public/downloads/` is git-ignored, and `build:app` / `build:ios` strip it from the phone app, so the APK never ends up inside itself.
+- The published APK is a **debug** build. For a public release, make a signed release APK (Android Studio → *Generate Signed App Bundle / APK*) and bump `versionCode`.
+
 ### 🔁 Building and testing a new version
 
 Each time the code changes:

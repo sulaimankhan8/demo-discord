@@ -10,10 +10,12 @@
     "lint": "eslint",
     "test:mesh": "vitest run",
     "bench:mesh": "vitest run --config vitest.bench.config.mts",
-    "build:app": "dotenv -e .env.capacitor -v BUILD_TARGET=capacitor -- next build && cap sync android",
+    "build:app": "dotenv -e .env.capacitor -v BUILD_TARGET=capacitor -- next build && node scripts/strip-downloads.mjs && cap sync android",
+    "apk": "npm run build:app && node scripts/apk.mjs",
+    "apk:copy": "node scripts/apk.mjs --copy-only",
     "app:open": "cap open android",
     "app:run": "cap run android",
-    "build:ios": "dotenv -e .env.capacitor -v BUILD_TARGET=capacitor -- next build && cap sync ios",
+    "build:ios": "dotenv -e .env.capacitor -v BUILD_TARGET=capacitor -- next build && node scripts/strip-downloads.mjs && cap sync ios",
     "ios:open": "cap open ios"
   },
   "dependencies": {

@@ -13,6 +13,9 @@
 .next/
 out/
 
+# APK published for the website's download button (built by `npm run apk`)
+public/downloads/
+
 # =====================
 # Node
 # =====================

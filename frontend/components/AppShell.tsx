@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Capacitor } from "@capacitor/core";
 import { soundFx } from "@/lib/soundFx";
 import MeshIcon from "@/components/icons/MeshIcon";
+import DownloadApp from "@/components/DownloadApp";
 
 type Platform = "ios" | "android" | "web";
 
@@ -106,7 +107,7 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
       {/* ---------------- PHONE: TOP BAR ---------------- */}
       <header className="md:hidden shrink-0 flex items-end gap-2 px-4 pt-2 pb-2.5 bg-surface-0 border-b-2 border-black [.theme-1bit_&]:border-white">
         <div className="flex-1 min-w-0">
-          <div className={`font-mono text-[10px] tracking-[0.12em] ${isMeshActive ? "text-ink" : "text-dim"}`}>
+          <div className={`font-mono text-[10px] tracking-[0.12em] truncate ${isMeshActive ? "text-ink" : "text-dim"}`}>
             {page.kicker}
             {!isMeshActive && <span className="text-ok"> · ● ONLINE</span>}
           </div>
@@ -144,6 +145,7 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
             </svg>
           </button>
+          <DownloadApp variant="icon" />
           <button
             onClick={logout}
             aria-label="Disconnect and exit"
