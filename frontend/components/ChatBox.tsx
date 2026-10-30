@@ -54,8 +54,8 @@ const REACTION_ICONS: Record<string, React.ReactNode> = {
 };
 
 const EMOJI_META: Record<string, { label: string; color: string; hoverBg: string; hoverColor: string }> = {
-  like: { label: "Like", color: "#5865F2", hoverBg: "hover:bg-[#5865F2]/15", hoverColor: "hover:text-[#5865F2]" },
-  heart: { label: "Love", color: "#F23F43", hoverBg: "hover:bg-[#F23F43]/15", hoverColor: "hover:text-[#F23F43]" },
+  like: { label: "Like", color: "var(--color-accent)", hoverBg: "hover:bg-accent/15", hoverColor: "hover:text-accent" },
+  heart: { label: "Love", color: "var(--color-danger)", hoverBg: "hover:bg-danger/15", hoverColor: "hover:text-danger" },
   fire: { label: "Fire", color: "#FF7B00", hoverBg: "hover:bg-[#FF7B00]/15", hoverColor: "hover:text-[#FF7B00]" },
   star: { label: "Star", color: "#FEE75C", hoverBg: "hover:bg-[#FEE75C]/15", hoverColor: "hover:text-[#FEE75C]" },
 };
@@ -406,8 +406,8 @@ export default function ChatBox() {
   };
 
   const getAvatarColor = (name: string) => {
-    if (!name) return "#5865F2";
-    const colors = ["#5865F2", "#23A55A", "#F0B232", "#F23F43", "#9B59B6", "#1ABC9C"];
+    if (!name) return "var(--avatar-0)";
+    const colors = ["var(--avatar-0)", "var(--avatar-1)", "var(--avatar-2)", "var(--avatar-3)", "var(--avatar-4)", "var(--avatar-5)"];
     let hash = 0;
     for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
     return colors[Math.abs(hash) % colors.length];
@@ -423,18 +423,18 @@ export default function ChatBox() {
 
   return (
     <AppShell activeChannel="general-chat" onlineCount={onlineUsers.length}>
-      <div className="flex h-full w-full overflow-hidden bg-[#171922] font-sans">
+      <div className="flex h-full w-full overflow-hidden bg-surface-2 font-sans">
         {/* ================= CHAT STREAM COLUMN ================= */}
-        <div className="flex-1 flex flex-col h-full min-w-0 bg-[#171922]">
+        <div className="flex-1 flex flex-col h-full min-w-0 bg-surface-2">
           {/* TOP CHANNEL HEADER */}
-          <header className="h-12 px-4 border-b border-white/[0.05] bg-[#171922] flex items-center justify-between shrink-0 z-10">
+          <header className="h-12 px-4 border-b border-white/[0.05] bg-surface-2 flex items-center justify-between shrink-0 z-10">
             <div className="flex items-center gap-2 truncate">
-              <svg className="w-4 h-4 text-[#6D737F] fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
+              <svg className="hidden md:block w-4 h-4 text-muted fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
               </svg>
-              <h2 className="font-semibold text-sm text-white tracking-tight">general-chat</h2>
+              <h2 className="hidden md:block font-display text-xl leading-none text-white">general-chat</h2>
               <div className="h-4 w-[1px] bg-white/[0.08] mx-2 hidden sm:block" />
-              <span className="text-xs text-[#949BA4] truncate hidden sm:block font-mono">
+              <span className="text-xs text-dim truncate hidden sm:block font-mono">
                 Realtime Stream
               </span>
             </div>
@@ -442,7 +442,7 @@ export default function ChatBox() {
             <div className="flex items-center gap-2">
               <Link
                 href="/voice"
-                className="flex items-center gap-1.5 px-3 py-1 bg-[#23A55A]/15 hover:bg-[#23A55A]/25 text-[#23A55A] border border-[#23A55A]/30 rounded-md text-xs font-semibold transition"
+                className="flex items-center gap-1.5 px-3 py-1 bg-ok/15 hover:bg-ok/25 text-ok border border-ok/30 rounded-md text-xs font-semibold transition"
               >
                 <svg className="w-3.5 h-3.5 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
@@ -456,7 +456,7 @@ export default function ChatBox() {
                 className={`p-1.5 rounded transition cursor-pointer ${
                   showMembers
                     ? "text-white bg-white/[0.08]"
-                    : "text-[#949BA4] hover:bg-white/[0.04] hover:text-white"
+                    : "text-dim hover:bg-white/[0.04] hover:text-white"
                 }`}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -475,15 +475,15 @@ export default function ChatBox() {
             {/* Start of history marker */}
             {!hasMoreHistory && (
               <div className="pt-6 pb-4 px-2">
-                <div className="w-10 h-10 rounded-lg bg-[#1E212D] border border-white/[0.08] flex items-center justify-center text-sm mb-3 text-white">
+                <div className="w-10 h-10 rounded-lg bg-surface-3 border border-white/[0.08] flex items-center justify-center text-sm mb-3 text-white">
                   <svg className="w-5 h-5 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-bold text-white tracking-tight">
+                <h3 className="font-display text-3xl leading-tight text-white">
                   Welcome to #general-chat
                 </h3>
-                <p className="text-xs text-[#949BA4] mt-0.5 font-mono">
+                <p className="text-xs text-dim mt-0.5 font-mono">
                   Beginning of message stream history.
                 </p>
                 <div className="h-[1px] bg-white/[0.05] mt-4 mb-2" />
@@ -491,7 +491,7 @@ export default function ChatBox() {
             )}
 
             {loadingHistory && (
-              <div className="text-center text-xs text-[#5865F2] font-mono py-2">
+              <div className="text-center text-xs text-accent font-mono py-2">
                 Loading older messages…
               </div>
             )}
@@ -521,7 +521,7 @@ export default function ChatBox() {
                       {m.username.charAt(0).toUpperCase()}
                     </div>
                   ) : (
-                    <div className="w-9 shrink-0 text-right text-[10px] text-[#6D737F] opacity-0 group-hover:opacity-100 font-mono select-none pt-0.5">
+                    <div className="w-9 shrink-0 text-right text-[10px] text-muted opacity-0 group-hover:opacity-100 font-mono select-none pt-0.5">
                       {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </div>
                   )}
@@ -530,19 +530,19 @@ export default function ChatBox() {
                   <div className="flex-1 min-w-0">
                     {!isClustered && (
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className={`text-[13px] font-semibold tracking-tight ${isMe ? "text-[#5865F2]" : "text-[#F2F3F5]"}`}>
+                        <span className={`text-[13px] font-semibold tracking-tight ${isMe ? "text-accent" : "text-ink"}`}>
                           {m.username}
                         </span>
-                        <span className="text-[10px] text-[#6D737F] font-mono">
+                        <span className="text-[10px] text-muted font-mono">
                           {formatTimestamp(m.createdAt)}
                         </span>
                         {m.snowflake.startsWith("temp-") && (
-                          <span className="text-[9px] text-[#F0B232] font-mono">sending…</span>
+                          <span className="text-[9px] text-warn font-mono">sending…</span>
                         )}
                       </div>
                     )}
 
-                    <div className="text-[13px] text-[#DBDEE1] leading-[19px] whitespace-pre-wrap break-words">
+                    <div className="text-[13px] text-body leading-[19px] whitespace-pre-wrap break-words">
                       {m.content}
                     </div>
 
@@ -557,8 +557,8 @@ export default function ChatBox() {
                               onClick={() => handleToggleReaction(m.snowflake, r.emoji)}
                               className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-mono transition-all duration-150 cursor-pointer border ${
                                 r.me
-                                  ? "bg-[#5865F2]/20 border-[#5865F2]/50 text-white shadow-sm"
-                                  : "bg-[#1E212D] border-white/[0.06] text-[#949BA4] hover:border-white/[0.18] hover:text-white"
+                                  ? "bg-accent/20 border-accent/50 text-white shadow-sm"
+                                  : "bg-surface-3 border-white/[0.06] text-dim hover:border-white/[0.18] hover:text-white"
                               }`}
                             >
                               <span style={{ color: r.me ? meta?.color : undefined }} className="shrink-0 flex items-center">
@@ -573,19 +573,19 @@ export default function ChatBox() {
                   </div>
 
                   {/* Hover Quick Action Toolbar */}
-                  <div className="absolute right-3 -top-3.5 hidden group-hover:flex items-center bg-[#1E212D]/95 border border-white/[0.1] rounded-lg shadow-2xl px-1 py-0.5 z-10 gap-0.5 backdrop-blur-md">
+                  <div className="absolute right-3 -top-3.5 hidden group-hover:flex items-center bg-surface-3/95 border border-white/[0.1] rounded-lg shadow-2xl px-1 py-0.5 z-10 gap-0.5 backdrop-blur-md">
                     {AVAILABLE_EMOJIS.map((emoji) => {
                       const meta = EMOJI_META[emoji];
                       return (
                         <div key={emoji} className="relative group/btn">
                           <button
                             onClick={() => handleToggleReaction(m.snowflake, emoji)}
-                            className={`p-1.5 rounded-md text-[#949BA4] ${meta.hoverColor} ${meta.hoverBg} hover:scale-125 transition-all duration-150 cursor-pointer flex items-center justify-center`}
+                            className={`p-1.5 rounded-md text-dim ${meta.hoverColor} ${meta.hoverBg} hover:scale-125 transition-all duration-150 cursor-pointer flex items-center justify-center`}
                           >
                             {REACTION_ICONS[emoji]}
                           </button>
                           {/* Sleek Dark Tooltip */}
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-[#0E0F14] border border-white/[0.12] rounded text-[10px] font-medium text-white tracking-wide whitespace-nowrap opacity-0 group-hover/btn:opacity-100 pointer-events-none transition-opacity duration-150 shadow-lg">
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 bg-surface-0 border border-white/[0.12] rounded text-[10px] font-medium text-white tracking-wide whitespace-nowrap opacity-0 group-hover/btn:opacity-100 pointer-events-none transition-opacity duration-150 shadow-lg">
                             {meta.label}
                           </div>
                         </div>
@@ -598,11 +598,11 @@ export default function ChatBox() {
 
             {/* Typing Indicator */}
             {typingUsers.size > 0 && (
-              <div className="px-2 py-1 text-xs text-[#949BA4] font-mono flex items-center gap-2">
+              <div className="px-2 py-1 text-xs text-dim font-mono flex items-center gap-2">
                 <div className="flex space-x-1">
-                  <div className="w-1.5 h-1.5 bg-[#5865F2] rounded-full animate-pulse" />
-                  <div className="w-1.5 h-1.5 bg-[#5865F2] rounded-full animate-pulse delay-100" />
-                  <div className="w-1.5 h-1.5 bg-[#5865F2] rounded-full animate-pulse delay-200" />
+                  <div className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />
+                  <div className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse delay-100" />
+                  <div className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse delay-200" />
                 </div>
                 <span>
                   {Array.from(typingUsers.values()).slice(0, 3).join(", ")} is typing…
@@ -614,8 +614,8 @@ export default function ChatBox() {
           </div>
 
           {/* CHAT INPUT AREA */}
-          <div className="px-4 pb-4 pt-1 bg-[#171922]">
-            <div className="relative flex items-center bg-[#1E212D] border border-white/[0.06] focus-within:border-white/[0.18] rounded-lg px-4 py-2.5 transition">
+          <div className="px-4 pb-4 pt-1 bg-surface-2">
+            <div className="relative flex items-center bg-surface-3 border border-white/[0.06] focus-within:border-white/[0.18] rounded-lg px-4 py-2.5 transition">
               <input
                 value={input}
                 onFocus={() => setInputFocused(true)}
@@ -629,12 +629,12 @@ export default function ChatBox() {
                 }}
                 onKeyDown={(e) => e.key === "Enter" && send()}
                 placeholder="Message #general-chat"
-                className="w-full bg-transparent text-sm text-[#F2F3F5] placeholder-[#6D737F] outline-none font-medium"
+                className="w-full bg-transparent text-sm text-ink placeholder-muted outline-none font-medium"
               />
               <button
                 onClick={send}
                 disabled={!input.trim()}
-                className="ml-2 px-3 py-1 bg-[#5865F2] hover:bg-[#4752C4] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded transition cursor-pointer"
+                className="ml-2 px-3 py-1 bg-accent hover:bg-accent-hover brut disabled:opacity-40 disabled:cursor-not-allowed text-on-accent text-xs font-semibold rounded transition cursor-pointer"
               >
                 Send
               </button>
@@ -644,8 +644,8 @@ export default function ChatBox() {
 
         {/* ================= COLUMN 4: MEMBER DRAWER (240px) ================= */}
         {showMembers && (
-          <aside className="w-60 bg-[#12141A] border-l border-white/[0.04] p-3 overflow-y-auto shrink-0 hidden lg:flex flex-col">
-            <div className="text-[11px] font-semibold text-[#6D737F] uppercase tracking-wider px-2 py-1 mb-1">
+          <aside className="w-60 bg-surface-1 border-l border-white/[0.04] p-3 overflow-y-auto shrink-0 hidden lg:flex flex-col">
+            <div className="text-[11px] font-semibold text-muted uppercase tracking-wider px-2 py-1 mb-1">
               Online — {onlineUsers.length}
             </div>
 
@@ -662,13 +662,13 @@ export default function ChatBox() {
                     >
                       {u.username.charAt(0).toUpperCase()}
                     </div>
-                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#23A55A] border-2 border-[#12141A]" />
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-ok border-2 border-surface-1" />
                   </div>
                   <div className="truncate flex-1">
-                    <div className="text-xs font-medium text-[#DBDEE1] truncate">
+                    <div className="text-xs font-medium text-body truncate">
                       {u.username}
                       {u.userId === user?.id && (
-                        <span className="ml-1 text-[10px] text-[#6D737F]">(you)</span>
+                        <span className="ml-1 text-[10px] text-muted">(you)</span>
                       )}
                     </div>
                   </div>

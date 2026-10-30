@@ -59,7 +59,7 @@ export default function MeshChannelList({
             disabled={!running}
             aria-label="Create channel"
             title="Create channel"
-            className="w-5 h-5 flex items-center justify-center rounded text-[#949BA4] hover:text-white hover:bg-white/[0.06] disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+            className="w-5 h-5 flex items-center justify-center rounded text-dim hover:text-white hover:bg-white/[0.06] disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
           >
             <svg className="w-3.5 h-3.5 fill-none stroke-current" strokeWidth="2.5" viewBox="0 0 24 24">
               <path strokeLinecap="round" d="M12 5v14M5 12h14" />
@@ -67,7 +67,7 @@ export default function MeshChannelList({
           </button>
         </div>
         {channels.length === 0 ? (
-          <p className="px-2 mt-0.5 text-[11px] text-[#6D737F] leading-snug">
+          <p className="px-2 mt-0.5 text-[11px] text-muted leading-snug">
             None yet. Join one below or make your own with +.
           </p>
         ) : (
@@ -90,7 +90,7 @@ export default function MeshChannelList({
       <section>
         <SectionTitle>Direct messages</SectionTitle>
         {directs.length === 0 && startable.length === 0 ? (
-          <p className="px-2 mt-0.5 text-[11px] text-[#6D737F] leading-snug">
+          <p className="px-2 mt-0.5 text-[11px] text-muted leading-snug">
             People nearby show up here. Only they can read what you send them.
           </p>
         ) : (
@@ -101,7 +101,7 @@ export default function MeshChannelList({
                 onClick={() => onSelect(d.id)}
                 aria-current={activeId === d.id ? "page" : undefined}
                 className={`w-full flex items-center gap-1.5 px-2 py-1.5 rounded text-left transition cursor-pointer ${
-                  activeId === d.id ? "bg-white/[0.08] text-white" : "text-[#949BA4] hover:bg-white/[0.04] hover:text-[#DBDEE1]"
+                  activeId === d.id ? "bg-white/[0.08] text-white" : "text-dim hover:bg-white/[0.04] hover:text-body"
                 }`}
               >
                 <span className="text-sm leading-none">@</span>
@@ -109,12 +109,12 @@ export default function MeshChannelList({
                   {d.nickname}
                 </span>
                 {d.verified && (
-                  <span className="text-[10px] text-[#23A55A]" title="Fingerprint checked in person">
+                  <span className="text-[10px] text-ok" title="Fingerprint checked in person">
                     ✓
                   </span>
                 )}
                 {d.unread > 0 && activeId !== d.id && (
-                  <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[#F23F43] text-white text-[10px] font-bold flex items-center justify-center">
+                  <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-on-danger text-[10px] font-bold flex items-center justify-center">
                     {d.unread > 99 ? "99+" : d.unread}
                   </span>
                 )}
@@ -126,7 +126,7 @@ export default function MeshChannelList({
                 onClick={() => onDirect(p.key)}
                 disabled={!running}
                 title={`Send ${p.nickname} a private message`}
-                className="w-full flex items-center gap-1.5 px-2 py-1 rounded text-left text-[#6D737F] hover:bg-white/[0.04] hover:text-[#DBDEE1] disabled:opacity-40 transition cursor-pointer"
+                className="w-full flex items-center gap-1.5 px-2 py-1 rounded text-left text-muted hover:bg-white/[0.04] hover:text-body disabled:opacity-40 transition cursor-pointer"
               >
                 <span className="text-sm leading-none">+</span>
                 <span className="text-[12px] truncate flex-1">{p.nickname}</span>
@@ -140,7 +140,7 @@ export default function MeshChannelList({
       <section>
         <SectionTitle>Nearby — {nearby.length}</SectionTitle>
         {nearby.length === 0 ? (
-          <p className="px-2 mt-0.5 text-[11px] text-[#6D737F] leading-snug">
+          <p className="px-2 mt-0.5 text-[11px] text-muted leading-snug">
             Channels other phones are in show up here.
           </p>
         ) : (
@@ -151,8 +151,8 @@ export default function MeshChannelList({
               return (
                 <div key={c.id} className="px-2 py-1.5 rounded bg-white/[0.02] border border-white/[0.04]">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[#6D737F] text-sm leading-none">#</span>
-                    <span className="text-xs font-medium text-[#DBDEE1] truncate flex-1">{c.name}</span>
+                    <span className="text-muted text-sm leading-none">#</span>
+                    <span className="text-xs font-medium text-body truncate flex-1">{c.name}</span>
                     {c.kind !== ChannelKind.Public && <span title={kindLabel(c.kind)}>🔒</span>}
                     <button
                       onClick={() => onJoin(c.id)}
@@ -160,13 +160,13 @@ export default function MeshChannelList({
                       title={
                         c.kind === ChannelKind.Private ? `Ask to join #${c.name}` : joinable ? `Join #${c.name}` : "Join by invite"
                       }
-                      className="shrink-0 px-2 py-0.5 rounded text-[10px] font-semibold bg-[#F0B232] hover:bg-[#D99E22] text-[#08090C] disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                      className="shrink-0 px-2 py-0.5 rounded text-[10px] font-semibold bg-warn hover:bg-warn-hover brut text-canvas disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
                     >
                       {c.kind === ChannelKind.Private ? "Ask" : "Join"}
                     </button>
                   </div>
-                  {c.description && <p className="mt-0.5 text-[10px] text-[#949BA4] line-clamp-2">{c.description}</p>}
-                  <p className="mt-0.5 text-[10px] text-[#6D737F] font-mono">
+                  {c.description && <p className="mt-0.5 text-[10px] text-dim line-clamp-2">{c.description}</p>}
+                  <p className="mt-0.5 text-[10px] text-muted font-mono">
                     {hopLabel(c.hops)}
                     {c.lastActivity ? ` · active ${timeAgo(c.lastActivity)}` : ""}
                   </p>
@@ -179,7 +179,7 @@ export default function MeshChannelList({
       <button
         onClick={onInvite}
         disabled={!running}
-        className="mx-2 mt-auto px-2 py-1.5 rounded text-[11px] font-semibold text-[#949BA4] bg-white/[0.04] hover:bg-white/[0.08] hover:text-[#DBDEE1] disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+        className="mx-2 mt-auto px-2 py-1.5 rounded text-[11px] font-semibold text-dim bg-white/[0.04] hover:bg-white/[0.08] hover:text-body disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
       >
         Join with an invite
       </button>
@@ -207,7 +207,7 @@ function ChannelRow({
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       className={`w-full flex items-center gap-1.5 px-2 py-1.5 rounded text-left transition cursor-pointer ${
-        active ? "bg-white/[0.08] text-white" : "text-[#949BA4] hover:bg-white/[0.04] hover:text-[#DBDEE1]"
+        active ? "bg-white/[0.08] text-white" : "text-dim hover:bg-white/[0.04] hover:text-body"
       }`}
     >
       <span className="text-sm leading-none" style={active ? { color: MESH_ACCENT } : undefined}>
@@ -223,7 +223,7 @@ function ChannelRow({
         </span>
       )}
       {unread > 0 && !active && (
-        <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[#F23F43] text-white text-[10px] font-bold flex items-center justify-center">
+        <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-on-danger text-[10px] font-bold flex items-center justify-center">
           {unread > 99 ? "99+" : unread}
         </span>
       )}
@@ -232,5 +232,5 @@ function ChannelRow({
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <div className="text-[11px] font-semibold text-[#6D737F] uppercase tracking-wider px-2 py-1">{children}</div>;
+  return <div className="text-[11px] font-semibold text-muted uppercase tracking-wider px-2 py-1">{children}</div>;
 }

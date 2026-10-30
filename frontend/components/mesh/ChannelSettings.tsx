@@ -91,14 +91,14 @@ export default function ChannelSettings({ channel, myFingerprint, peers, admin, 
         role="dialog"
         aria-modal="true"
         aria-labelledby="channel-settings-title"
-        className="w-full max-w-lg max-h-full overflow-y-auto bg-[#12141A] border border-white/[0.08] rounded-xl p-5 shadow-2xl"
+        className="w-full max-w-lg max-h-full overflow-y-auto bg-surface-1 border border-white/[0.08] rounded-xl p-5 shadow-2xl"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 id="channel-settings-title" className="text-base font-bold text-white tracking-tight break-words">
+            <h2 id="channel-settings-title" className="font-display text-2xl leading-tight text-white break-words">
               🔒 #{channel.name}
             </h2>
-            <p className="text-[12px] text-[#949BA4] mt-0.5">
+            <p className="text-[12px] text-dim mt-0.5">
               {kindLabel(channel.kind)} · key #{channel.epoch ?? 0} · new members see{" "}
               {HISTORY_TEXT[channel.historyPolicy] ?? "recent messages"}
             </p>
@@ -106,7 +106,7 @@ export default function ChannelSettings({ channel, myFingerprint, peers, admin, 
           <button
             onClick={onClose}
             aria-label="Close"
-            className="shrink-0 p-1 rounded text-[#949BA4] hover:text-white hover:bg-white/[0.06] cursor-pointer"
+            className="shrink-0 p-1 rounded text-dim hover:text-white hover:bg-white/[0.06] cursor-pointer"
           >
             <svg className="w-4 h-4 fill-none stroke-current" strokeWidth="2.5" viewBox="0 0 24 24">
               <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
@@ -115,13 +115,13 @@ export default function ChannelSettings({ channel, myFingerprint, peers, admin, 
         </div>
 
         {error && (
-          <p role="alert" className="mt-3 text-[12px] text-[#F23F43]">
+          <p role="alert" className="mt-3 text-[12px] text-danger">
             {error}
           </p>
         )}
 
         {channel.waitingForApproval && (
-          <p className="mt-4 px-3 py-2 rounded-md bg-white/[0.03] border border-white/[0.06] text-[12px] text-[#949BA4]">
+          <p className="mt-4 px-3 py-2 rounded-md bg-white/[0.03] border border-white/[0.06] text-[12px] text-dim">
             Your request to join has been sent. An admin needs to let you in; it&apos;s sent again whenever you meet
             new phones, for 12 hours.
           </p>
@@ -130,29 +130,29 @@ export default function ChannelSettings({ channel, myFingerprint, peers, admin, 
         {isAdmin && (
           <Section title={`Join requests — ${channel.joinRequests?.length ?? 0}`}>
             {!channel.joinRequests?.length ? (
-              <p className="text-[11px] text-[#6D737F]">Nobody is waiting.</p>
+              <p className="text-[11px] text-muted">Nobody is waiting.</p>
             ) : (
               <ul className="space-y-1.5">
                 {channel.joinRequests.map((r) => (
                   <li key={r.key} className="flex items-center gap-2 px-2 py-1.5 rounded bg-white/[0.03]">
                     <div className="min-w-0 flex-1">
-                      <div className="text-xs text-[#DBDEE1] truncate">
-                        {names.get(r.key) ?? "Someone"} <span className="font-mono text-[#6D737F]">#{r.fingerprint.slice(0, 4)}</span>
+                      <div className="text-xs text-body truncate">
+                        {names.get(r.key) ?? "Someone"} <span className="font-mono text-muted">#{r.fingerprint.slice(0, 4)}</span>
                       </div>
-                      <div className="text-[10px] text-[#6D737F] truncate">
+                      <div className="text-[10px] text-muted truncate">
                         {r.note ? `“${r.note}” · ` : ""}
                         {timeAgo(r.at)}
                       </div>
                     </div>
                     <button
                       onClick={() => run(() => admin.approve(channel.id, r.key))}
-                      className="px-2 py-1 rounded text-[11px] font-semibold bg-[#23A55A] hover:bg-[#1F944F] text-white cursor-pointer"
+                      className="px-2 py-1 rounded text-[11px] font-semibold bg-ok hover:bg-ok-hover brut text-on-accent cursor-pointer"
                     >
                       Let in
                     </button>
                     <button
                       onClick={() => run(() => admin.decline(channel.id, r.key))}
-                      className="px-2 py-1 rounded text-[11px] font-semibold bg-white/[0.06] hover:bg-white/[0.1] text-[#DBDEE1] cursor-pointer"
+                      className="px-2 py-1 rounded text-[11px] font-semibold bg-white/[0.06] hover:bg-white/[0.1] text-body cursor-pointer"
                     >
                       Decline
                     </button>
@@ -160,7 +160,7 @@ export default function ChannelSettings({ channel, myFingerprint, peers, admin, 
                 ))}
               </ul>
             )}
-            <p className="mt-1.5 text-[10px] text-[#6D737F] leading-snug">
+            <p className="mt-1.5 text-[10px] text-muted leading-snug">
               Compare the #code with the person&apos;s fingerprint before letting them in.
             </p>
           </Section>
@@ -174,15 +174,15 @@ export default function ChannelSettings({ channel, myFingerprint, peers, admin, 
               return (
                 <li key={m.key} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white/[0.03]">
                   <div className="min-w-0 flex-1">
-                    <span className="text-xs text-[#DBDEE1]">{nameOf(m)}</span>
-                    <span className="ml-1.5 text-[10px] font-mono text-[#6D737F]">#{m.fingerprint.slice(0, 4)}</span>
+                    <span className="text-xs text-body">{nameOf(m)}</span>
+                    <span className="ml-1.5 text-[10px] font-mono text-muted">#{m.fingerprint.slice(0, 4)}</span>
                   </div>
                   {choices.length > 0 ? (
                     <select
                       aria-label={`Role of ${nameOf(m)}`}
                       value={m.role}
                       onChange={(e) => run(() => admin.setRole(channel.id, m.key, Number(e.target.value)))}
-                      className="bg-[#1E212D] border border-white/[0.06] rounded px-1.5 py-0.5 text-[11px] text-[#F2F3F5] outline-none cursor-pointer"
+                      className="bg-surface-3 border border-white/[0.06] rounded px-1.5 py-0.5 text-[11px] text-ink outline-none cursor-pointer"
                     >
                       {choices.map((r) => (
                         <option key={r} value={r}>
@@ -191,12 +191,12 @@ export default function ChannelSettings({ channel, myFingerprint, peers, admin, 
                       ))}
                     </select>
                   ) : (
-                    <span className="text-[10px] text-[#949BA4]">{ROLE_NAMES[m.role]}</span>
+                    <span className="text-[10px] text-dim">{ROLE_NAMES[m.role]}</span>
                   )}
                   {!isMe && canRemove(channel.myRole, m.role) && (
                     <button
                       onClick={() => run(() => admin.remove(channel.id, m.key))}
-                      className="px-1.5 py-0.5 rounded text-[10px] font-semibold text-[#949BA4] hover:bg-[#F23F43]/15 hover:text-[#F23F43] cursor-pointer"
+                      className="px-1.5 py-0.5 rounded text-[10px] font-semibold text-dim hover:bg-danger/15 hover:text-danger cursor-pointer"
                     >
                       Remove
                     </button>
@@ -205,7 +205,7 @@ export default function ChannelSettings({ channel, myFingerprint, peers, admin, 
               );
             })}
           </ul>
-          <p className="mt-1.5 text-[10px] text-[#6D737F] leading-snug">
+          <p className="mt-1.5 text-[10px] text-muted leading-snug">
             Removing someone moves everyone else to a new key, so they can&apos;t read anything new.
           </p>
         </Section>
@@ -220,16 +220,16 @@ export default function ChannelSettings({ channel, myFingerprint, peers, admin, 
                   onFocus={(e) => e.target.select()}
                   rows={4}
                   aria-label="Invite text"
-                  className="w-full bg-[#1E212D] border border-white/[0.06] rounded px-2 py-1.5 text-[10px] font-mono text-[#DBDEE1] outline-none break-all resize-none"
+                  className="w-full bg-surface-3 border border-white/[0.06] rounded px-2 py-1.5 text-[10px] font-mono text-body outline-none break-all resize-none"
                 />
                 <div className="mt-1.5 flex items-center gap-2">
                   <button
                     onClick={() => void copy()}
-                    className="px-3 py-1 rounded text-[11px] font-semibold bg-[#F0B232] hover:bg-[#D99E22] text-[#08090C] cursor-pointer"
+                    className="px-3 py-1 rounded text-[11px] font-semibold bg-warn hover:bg-warn-hover brut text-canvas cursor-pointer"
                   >
                     {copied ? "Copied" : "Copy"}
                   </button>
-                  <span className="text-[10px] text-[#6D737F]">Lets one person in. Works for 7 days.</span>
+                  <span className="text-[10px] text-muted">Lets one person in. Works for 7 days.</span>
                 </div>
               </>
             ) : (
@@ -240,12 +240,12 @@ export default function ChannelSettings({ channel, myFingerprint, peers, admin, 
                     setCopied(false);
                   })
                 }
-                className="px-3 py-1.5 rounded text-[11px] font-semibold bg-white/[0.06] hover:bg-white/[0.1] text-[#F2F3F5] cursor-pointer"
+                className="px-3 py-1.5 rounded text-[11px] font-semibold bg-white/[0.06] hover:bg-white/[0.1] text-ink cursor-pointer"
               >
                 Create invite
               </button>
             )}
-            <p className="mt-1.5 text-[10px] text-[#6D737F] leading-snug">
+            <p className="mt-1.5 text-[10px] text-muted leading-snug">
               {channel.kind === ChannelKind.Hidden
                 ? "Hidden channels aren't listed nearby, so an invite is the only way in. "
                 : ""}
@@ -255,13 +255,13 @@ export default function ChannelSettings({ channel, myFingerprint, peers, admin, 
         )}
 
         <Section title="Key">
-          <p className="text-[11px] text-[#949BA4] leading-snug">
+          <p className="text-[11px] text-dim leading-snug">
             The key changes every 24 hours, after 500 messages, and whenever someone leaves or is removed.
           </p>
           {isAdmin && (
             <button
               onClick={() => run(() => admin.rotate(channel.id))}
-              className="mt-1.5 px-3 py-1.5 rounded text-[11px] font-semibold bg-white/[0.06] hover:bg-white/[0.1] text-[#F2F3F5] cursor-pointer"
+              className="mt-1.5 px-3 py-1.5 rounded text-[11px] font-semibold bg-white/[0.06] hover:bg-white/[0.1] text-ink cursor-pointer"
             >
               Change key now
             </button>
@@ -271,7 +271,7 @@ export default function ChannelSettings({ channel, myFingerprint, peers, admin, 
         <div className="mt-5 flex justify-end">
           <button
             onClick={onLeave}
-            className="px-4 py-2 rounded-md text-xs font-semibold text-[#F23F43] bg-[#F23F43]/10 hover:bg-[#F23F43]/20 cursor-pointer"
+            className="px-4 py-2 rounded-md text-xs font-semibold text-danger bg-danger/10 hover:bg-danger/20 cursor-pointer"
           >
             Leave channel
           </button>
@@ -284,7 +284,7 @@ export default function ChannelSettings({ channel, myFingerprint, peers, admin, 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-4">
-      <h3 className="text-[11px] font-semibold text-[#949BA4] uppercase tracking-wider mb-1.5">{title}</h3>
+      <h3 className="text-[11px] font-semibold text-dim uppercase tracking-wider mb-1.5">{title}</h3>
       {children}
     </section>
   );

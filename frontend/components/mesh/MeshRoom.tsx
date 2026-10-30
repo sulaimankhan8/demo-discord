@@ -132,14 +132,14 @@ export default function MeshRoom() {
 
   return (
     <AppShell activeChannel="nearby" allowOffline>
-      <div className="relative flex h-full w-full overflow-hidden bg-[#171922] font-sans">
+      <div className="relative flex h-full w-full overflow-hidden bg-surface-2 font-sans">
         {showList && (
-          <aside className="w-56 bg-[#12141A] border-r border-white/[0.04] shrink-0 hidden md:block">{channelList}</aside>
+          <aside className="w-56 bg-surface-1 border-r border-white/[0.04] shrink-0 hidden md:block">{channelList}</aside>
         )}
         {showList && showChannels && (
           // Fixed, not absolute: on phones the app shell's rails leave this page very little width.
           <div className="md:hidden fixed inset-0 z-40 flex">
-            <aside className="w-64 max-w-[80%] bg-[#12141A] border-r border-white/[0.06] shadow-2xl">{channelList}</aside>
+            <aside className="w-64 max-w-[80%] bg-surface-1 border-r border-white/[0.06] shadow-2xl">{channelList}</aside>
             <button
               aria-label="Close channel list"
               className="flex-1 bg-black/50 cursor-default"
@@ -147,41 +147,41 @@ export default function MeshRoom() {
             />
           </div>
         )}
-        <div className="flex-1 flex flex-col h-full min-w-0 bg-[#171922]">
-          <header className="h-12 px-4 border-b border-white/[0.05] bg-[#171922] flex items-center justify-between shrink-0 z-10">
+        <div className="flex-1 flex flex-col h-full min-w-0 bg-surface-2">
+          <header className="h-12 px-4 border-b border-white/[0.05] bg-surface-2 flex items-center justify-between shrink-0 z-10">
             <div className="flex items-center gap-2 min-w-0">
               {showList && (
                 <button
                   onClick={() => setShowChannels(true)}
                   aria-label="Show channels"
-                  className="md:hidden relative -ml-1 p-1 rounded text-[#949BA4] hover:text-white hover:bg-white/[0.06] cursor-pointer"
+                  className="md:hidden relative -ml-1 p-1 rounded text-dim hover:text-white hover:bg-white/[0.06] cursor-pointer"
                 >
                   <svg className="w-5 h-5 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
                     <path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />
                   </svg>
-                  {unreadElsewhere > 0 && <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-[#F23F43]" />}
+                  {unreadElsewhere > 0 && <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-danger" />}
                 </button>
               )}
               <span style={{ color: MESH_ACCENT }}>
                 <MeshIcon className="w-4 h-4" />
               </span>
-              <h2 className="font-semibold text-sm text-white tracking-tight truncate">
+              <h2 className="font-display text-xl leading-none text-white truncate">
                 {direct ? `@${title}` : title}
               </h2>
               {direct && (
-                <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-white/[0.06] text-[#949BA4] font-mono">
+                <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-white/[0.06] text-dim font-mono">
                   #{direct.fingerprint.slice(0, 4)}
                   {direct.verified ? " · ✓ verified" : ""}
                 </span>
               )}
               {channel && (
-                <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-white/[0.06] text-[#949BA4] font-mono">
+                <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-white/[0.06] text-dim font-mono">
                   {kindLabel(channel.kind).toLowerCase()} · #{channel.ownerFingerprint.slice(0, 4)}
                   {channel.role === "owner" ? " (you)" : ""}
                 </span>
               )}
               <div className="h-4 w-[1px] bg-white/[0.08] mx-2 hidden sm:block" />
-              <span className="text-xs text-[#949BA4] truncate hidden sm:block font-mono">
+              <span className="text-xs text-dim truncate hidden sm:block font-mono">
                 {state.mode === "sim"
                   ? "Offline mesh · browser-tab simulation"
                   : state.mode === "ble"
@@ -193,7 +193,7 @@ export default function MeshRoom() {
               {direct && (
                 <button
                   onClick={() => setVerifying(true)}
-                  className="px-2.5 py-1 rounded-md text-[11px] font-semibold text-[#DBDEE1] bg-white/[0.06] hover:bg-white/[0.1] transition cursor-pointer"
+                  className="px-2.5 py-1 rounded-md text-[11px] font-semibold text-body bg-white/[0.06] hover:bg-white/[0.1] transition cursor-pointer"
                 >
                   {direct.verified ? "Fingerprint" : "Verify"}
                 </button>
@@ -201,11 +201,11 @@ export default function MeshRoom() {
               {isPrivate && (
                 <button
                   onClick={() => setSettingsOpen(true)}
-                  className="relative px-2.5 py-1 rounded-md text-[11px] font-semibold text-[#DBDEE1] bg-white/[0.06] hover:bg-white/[0.1] transition cursor-pointer"
+                  className="relative px-2.5 py-1 rounded-md text-[11px] font-semibold text-body bg-white/[0.06] hover:bg-white/[0.1] transition cursor-pointer"
                 >
                   Members
                   {requests > 0 && (
-                    <span className="ml-1.5 inline-flex min-w-[16px] h-4 px-1 rounded-full bg-[#F23F43] text-white text-[10px] font-bold items-center justify-center">
+                    <span className="ml-1.5 inline-flex min-w-[16px] h-4 px-1 rounded-full bg-danger text-on-danger text-[10px] font-bold items-center justify-center">
                       {requests}
                     </span>
                   )}
@@ -214,7 +214,7 @@ export default function MeshRoom() {
               {channel && !isPrivate && (
                 <button
                   onClick={() => leaveChannel(channel.id)}
-                  className="px-2.5 py-1 rounded-md text-[11px] font-semibold text-[#949BA4] bg-white/[0.04] hover:bg-[#F23F43]/15 hover:text-[#F23F43] transition cursor-pointer"
+                  className="px-2.5 py-1 rounded-md text-[11px] font-semibold text-dim bg-white/[0.04] hover:bg-danger/15 hover:text-danger transition cursor-pointer"
                 >
                   Leave
                 </button>
@@ -237,7 +237,7 @@ export default function MeshRoom() {
               {state.errorCode === "bluetooth_off" && (
                 <button
                   onClick={() => void enableBluetooth()}
-                  className="px-4 py-2 bg-[#F0B232] hover:bg-[#D99E22] text-[#08090C] text-xs font-semibold rounded-md transition cursor-pointer"
+                  className="px-4 py-2 bg-warn hover:bg-warn-hover brut text-canvas text-xs font-semibold rounded-md transition cursor-pointer"
                 >
                   Turn on Bluetooth
                 </button>
@@ -245,7 +245,7 @@ export default function MeshRoom() {
               {state.errorCode !== "unsupported" && (
                 <button
                   onClick={() => void restart()}
-                  className="px-4 py-2 bg-white/[0.06] hover:bg-white/[0.1] text-[#F2F3F5] text-xs font-semibold rounded-md transition cursor-pointer"
+                  className="px-4 py-2 bg-white/[0.06] hover:bg-white/[0.1] text-ink text-xs font-semibold rounded-md transition cursor-pointer"
                 >
                   Try again
                 </button>
@@ -254,12 +254,12 @@ export default function MeshRoom() {
           ) : (
             <>
               {state.notice && (
-                <div className="mx-4 mt-3 flex items-center justify-between gap-3 px-3 py-2 rounded-md border border-[#F0B232]/30 bg-[#F0B232]/10 text-[12px] text-[#F0B232]">
+                <div className="mx-4 mt-3 flex items-center justify-between gap-3 px-3 py-2 rounded-md border border-warn/30 bg-warn/10 text-[12px] text-warn">
                   <span>{state.notice.message}</span>
                   {state.notice.code === "bluetooth_off" && (
                     <button
                       onClick={() => void enableBluetooth()}
-                      className="shrink-0 px-2.5 py-1 rounded bg-[#F0B232] hover:bg-[#D99E22] text-[#08090C] text-[11px] font-semibold transition cursor-pointer"
+                      className="shrink-0 px-2.5 py-1 rounded bg-warn hover:bg-warn-hover brut text-canvas text-[11px] font-semibold transition cursor-pointer"
                     >
                       Turn on
                     </button>
@@ -366,12 +366,12 @@ function StatusPill({
     <span
       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold border ${
         connected
-          ? "bg-[#23A55A]/15 text-[#23A55A] border-[#23A55A]/30"
-          : "bg-[#F0B232]/10 text-[#F0B232] border-[#F0B232]/30"
+          ? "bg-ok/15 text-ok border-ok/30"
+          : "bg-warn/10 text-warn border-warn/30"
       }`}
       title={`${relayed} messages passed on for others${lowPower ? " · low battery: not carrying for others" : ""}`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-[#23A55A]" : "bg-[#F0B232] animate-pulse"}`} />
+      <span className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-ok" : "bg-warn animate-pulse"}`} />
       {!running ? "Starting…" : connected ? `${links} ${links === 1 ? "link" : "links"}` : "Searching…"}
       {running && relayed > 0 && <span className="font-mono font-normal opacity-80 hidden sm:inline">· ↻{relayed}</span>}
       {lowPower && <span title="Low battery mode">🔋</span>}
@@ -382,25 +382,25 @@ function StatusPill({
 function Intro({ onStart }: { onStart: () => void }) {
   return (
     <div className="flex-1 flex items-center justify-center p-6">
-      <div className="max-w-md w-full bg-[#12141A] border border-white/[0.06] rounded-xl p-6">
+      <div className="max-w-md w-full bg-surface-1 border border-white/[0.06] rounded-xl p-6">
         <div
-          className="w-11 h-11 rounded-xl flex items-center justify-center mb-4 bg-[#F0B232]/10 border border-[#F0B232]/30"
+          className="w-11 h-11 rounded-xl flex items-center justify-center mb-4 bg-warn/10 border border-warn/30"
           style={{ color: MESH_ACCENT }}
         >
           <MeshIcon className="w-6 h-6" />
         </div>
-        <h3 className="text-base font-bold text-white tracking-tight">Chat with no internet</h3>
-        <p className="text-[13px] text-[#949BA4] mt-2 leading-relaxed">
+        <h3 className="font-display text-2xl leading-tight text-white">Chat with no internet</h3>
+        <p className="text-[13px] text-dim mt-2 leading-relaxed">
           The offline mesh sends messages phone to phone over Bluetooth. Phones in range pass messages on, so it
           keeps working when mobile networks are down. It runs in the mobile app.
         </p>
-        <p className="text-[13px] text-[#949BA4] mt-2 leading-relaxed">
+        <p className="text-[13px] text-dim mt-2 leading-relaxed">
           In the browser you can try it as a simulation: each tab acts as one phone. Open this page in two or three
           tabs.
         </p>
         <button
           onClick={onStart}
-          className="mt-5 px-4 py-2 bg-[#F0B232] hover:bg-[#D99E22] text-[#08090C] text-xs font-semibold rounded-md transition cursor-pointer"
+          className="mt-5 px-4 py-2 bg-warn hover:bg-warn-hover brut text-canvas text-xs font-semibold rounded-md transition cursor-pointer"
         >
           Start simulation
         </button>
@@ -412,9 +412,9 @@ function Intro({ onStart }: { onStart: () => void }) {
 function Notice({ title, body, children }: { title: string; body: string; children?: React.ReactNode }) {
   return (
     <div className="flex-1 flex items-center justify-center p-6">
-      <div className="max-w-md w-full bg-[#12141A] border border-white/[0.06] rounded-xl p-6">
-        <h3 className="text-base font-bold text-white tracking-tight">{title}</h3>
-        <p className="text-[13px] text-[#949BA4] mt-2 leading-relaxed">{body}</p>
+      <div className="max-w-md w-full bg-surface-1 border border-white/[0.06] rounded-xl p-6">
+        <h3 className="font-display text-2xl leading-tight text-white">{title}</h3>
+        <p className="text-[13px] text-dim mt-2 leading-relaxed">{body}</p>
         {children && <div className="mt-5 flex flex-wrap gap-2">{children}</div>}
       </div>
     </div>

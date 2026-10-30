@@ -1160,37 +1160,37 @@ videoEnabled: !!videoProducerRef.current,
   /* -------------------------------- UI -------------------------------- */
   return (
     <AppShell activeChannel="global-voice" onlineCount={totalUsers || 1}>
-      <div className="h-full w-full bg-[#171922] text-[#F2F3F5] flex flex-col font-sans overflow-hidden select-none">
+      <div className="h-full w-full bg-surface-2 text-ink flex flex-col font-sans overflow-hidden select-none">
         {/* TOP STAGE HEADER */}
-        <header className="h-12 px-4 bg-[#171922] border-b border-white/[0.05] flex justify-between items-center shrink-0 z-10">
+        <header className="h-12 px-4 bg-surface-2 border-b border-white/[0.05] flex justify-between items-center shrink-0 z-10">
           <div className="flex items-center gap-2.5 truncate">
-            <svg className="w-5 h-5 text-[#23A55A] shrink-0 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-ok shrink-0 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
             </svg>
-            <h1 className="font-semibold text-sm tracking-tight text-white flex items-center gap-2">
+            <h1 className="font-display text-xl leading-none text-white flex items-center gap-2">
               global-voice
               {joined && (
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono bg-[#23A55A]/15 text-[#23A55A] border border-[#23A55A]/30">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#23A55A] animate-pulse" />
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono bg-ok/15 text-ok border border-ok/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-ok animate-pulse" />
                   RTC 18ms
                 </span>
               )}
             </h1>
             <div className="h-4 w-[1px] bg-white/[0.08] mx-1 hidden sm:block" />
-            <p className="text-[11px] text-[#949BA4] font-mono hidden sm:block">
+            <p className="text-[11px] text-dim font-mono hidden sm:block">
               {totalUsers} {totalUsers === 1 ? "peer connected" : "peers connected"}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             {joined && (
-              <div className="flex items-center bg-[#12141A] p-0.5 rounded-md border border-white/[0.06] text-xs font-medium">
+              <div className="flex items-center bg-surface-1 p-0.5 rounded-md border border-white/[0.06] text-xs font-medium">
                 <button
                   onClick={() => setMode("focus")}
                   className={`px-2.5 py-1 rounded transition-all cursor-pointer ${
                     mode === "focus"
-                      ? "bg-[#5865F2] text-white font-semibold"
-                      : "text-[#949BA4] hover:text-white"
+                      ? "bg-accent text-on-accent font-semibold"
+                      : "text-dim hover:text-white"
                   }`}
                 >
                   Focus View
@@ -1199,8 +1199,8 @@ videoEnabled: !!videoProducerRef.current,
                   onClick={() => setMode("gallery")}
                   className={`px-2.5 py-1 rounded transition-all cursor-pointer ${
                     mode === "gallery"
-                      ? "bg-[#5865F2] text-white font-semibold"
-                      : "text-[#949BA4] hover:text-white"
+                      ? "bg-accent text-on-accent font-semibold"
+                      : "text-dim hover:text-white"
                   }`}
                 >
                   Gallery View
@@ -1210,7 +1210,7 @@ videoEnabled: !!videoProducerRef.current,
 
             <Link
               href="/chat"
-              className="flex items-center gap-1.5 px-3 py-1 bg-[#1E212D] hover:bg-white/[0.08] text-[#DBDEE1] rounded-md text-xs font-medium transition border border-white/[0.08]"
+              className="flex items-center gap-1.5 px-3 py-1 bg-surface-3 hover:bg-white/[0.08] text-body rounded-md text-xs font-medium transition border border-white/[0.08]"
             >
               <svg className="w-3.5 h-3.5 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -1223,22 +1223,22 @@ videoEnabled: !!videoProducerRef.current,
         {!joined ? (
           /* PRE-JOIN STAGE GATE */
           <div className="flex flex-col items-center justify-center flex-1 gap-5 p-6 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-[#23A55A]/15 border border-[#23A55A]/30 flex items-center justify-center text-[#23A55A] shadow-xl">
+            <div className="w-16 h-16 rounded-2xl bg-ok/15 border border-ok/30 flex items-center justify-center text-ok shadow-xl">
               <svg className="w-8 h-8 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
               </svg>
             </div>
             <div className="max-w-sm">
-              <h2 className="text-lg font-bold text-white tracking-tight">
+              <h2 className="font-display text-3xl leading-tight text-white">
                 Global Voice & Video Stage
               </h2>
-              <p className="text-xs text-[#949BA4] mt-1 font-mono">
+              <p className="text-xs text-dim mt-1 font-mono">
                 Mediasoup SFU v3 Multi-Core Routing with Scalable Video Coding (SVC).
               </p>
             </div>
             <button
               onClick={joinVoice}
-              className="px-6 py-2.5 bg-[#23A55A] hover:bg-[#1E904B] text-white font-semibold text-sm rounded-lg transition-all shadow-lg shadow-[#23A55A]/25 hover:scale-[1.01] active:scale-[0.99] flex items-center gap-2 cursor-pointer"
+              className="px-6 py-2.5 bg-ok hover:bg-ok-hover brut text-on-accent font-semibold text-sm rounded-lg transition-all shadow-lg shadow-ok/25 hover:scale-[1.01] active:scale-[0.99] flex items-center gap-2 cursor-pointer"
             >
               <span>Connect to Stage</span>
             </button>
@@ -1248,7 +1248,7 @@ videoEnabled: !!videoProducerRef.current,
             {/* STAGE VIDEO / AUDIO GRID */}
             <div className="flex-1 min-h-0 p-3 overflow-y-auto">
               {visiblePeers.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-[#6D737F] text-xs font-mono gap-2">
+                <div className="h-full flex flex-col items-center justify-center text-muted text-xs font-mono gap-2">
                   <span>Awaiting peer media streams…</span>
                 </div>
               ) : (
@@ -1266,12 +1266,12 @@ videoEnabled: !!videoProducerRef.current,
             </div>
 
             {/* FLOATING ACTION CONTROL DOCK */}
-            <div className="h-16 bg-[#12141A] border-t border-white/[0.05] px-6 flex justify-between items-center shrink-0 z-10">
+            <div className="h-16 bg-surface-1 border-t border-white/[0.05] px-6 flex justify-between items-center shrink-0 z-10">
               {/* Left Telemetry */}
-              <div className="hidden sm:flex items-center gap-2 text-xs text-[#949BA4] font-mono">
-                <span className="w-2 h-2 rounded-full bg-[#23A55A]" />
+              <div className="hidden sm:flex items-center gap-2 text-xs text-dim font-mono">
+                <span className="w-2 h-2 rounded-full bg-ok" />
                 <span>Opus 48kHz</span>
-                <span className="text-[#6D737F]">•</span>
+                <span className="text-muted">•</span>
                 <span>{visiblePeers.length} active tiles</span>
               </div>
 
@@ -1282,8 +1282,8 @@ videoEnabled: !!videoProducerRef.current,
                   onClick={toggleMute}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-xs transition cursor-pointer ${
                     muted
-                      ? "bg-[#F23F43]/20 text-[#F23F43] border border-[#F23F43]/40 hover:bg-[#F23F43]/30"
-                      : "bg-[#1E212D] hover:bg-white/[0.08] text-[#DBDEE1] border border-white/[0.08]"
+                      ? "bg-danger/20 text-danger border border-danger/40 hover:bg-danger/30"
+                      : "bg-surface-3 hover:bg-white/[0.08] text-body border border-white/[0.08]"
                   }`}
                 >
                   {muted ? (
@@ -1295,7 +1295,7 @@ videoEnabled: !!videoProducerRef.current,
                     </>
                   ) : (
                     <>
-                      <svg className="w-4 h-4 text-[#23A55A]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-4 h-4 text-ok" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                       </svg>
                       <span>Mute</span>
@@ -1308,8 +1308,8 @@ videoEnabled: !!videoProducerRef.current,
                   onClick={toggleCamera}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-xs transition cursor-pointer ${
                     cameraOff
-                      ? "bg-[#1E212D] hover:bg-white/[0.08] text-[#949BA4] border border-white/[0.08]"
-                      : "bg-[#5865F2] hover:bg-[#4752C4] text-white shadow-md shadow-[#5865F2]/20"
+                      ? "bg-surface-3 hover:bg-white/[0.08] text-dim border border-white/[0.08]"
+                      : "bg-accent hover:bg-accent-hover brut text-on-accent shadow-md shadow-accent/20"
                   }`}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1321,7 +1321,7 @@ videoEnabled: !!videoProducerRef.current,
                 {/* DISCONNECT */}
                 <button
                   onClick={leaveVoice}
-                  className="flex items-center gap-2 px-5 py-2 bg-[#F23F43] hover:bg-[#D83A3E] text-white rounded-lg font-semibold text-xs transition shadow-md shadow-[#F23F43]/20 cursor-pointer active:scale-[0.98]"
+                  className="flex items-center gap-2 px-5 py-2 bg-danger hover:bg-danger-hover brut text-on-danger rounded-lg font-semibold text-xs transition shadow-md shadow-danger/20 cursor-pointer active:scale-[0.98]"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z" />
@@ -1336,17 +1336,17 @@ videoEnabled: !!videoProducerRef.current,
                   <button
                     onClick={() => setPage((p) => Math.max(p - 1, 0))}
                     disabled={page === 0}
-                    className="px-2.5 py-1 bg-[#1E212D] text-[#DBDEE1] rounded disabled:opacity-30 transition border border-white/[0.06] cursor-pointer"
+                    className="px-2.5 py-1 bg-surface-3 text-body rounded disabled:opacity-30 transition border border-white/[0.06] cursor-pointer"
                   >
                     Prev
                   </button>
-                  <span className="text-[#949BA4] text-[11px] px-1">
+                  <span className="text-dim text-[11px] px-1">
                     {page + 1}/{totalPages}
                   </span>
                   <button
                     onClick={() => setPage((p) => Math.min(p + 1, totalPages - 1))}
                     disabled={page === totalPages - 1}
-                    className="px-2.5 py-1 bg-[#1E212D] text-[#DBDEE1] rounded disabled:opacity-30 transition border border-white/[0.06] cursor-pointer"
+                    className="px-2.5 py-1 bg-surface-3 text-body rounded disabled:opacity-30 transition border border-white/[0.06] cursor-pointer"
                   >
                     Next
                   </button>
@@ -1407,7 +1407,7 @@ const PeerTile = React.memo(
     const shouldShowVideo = peer.hasVideo && peer.videoEnabled !== false && isVideoTrackLive;
 
     const getAvatarColor = (name: string) => {
-      const colors = ["#5865F2", "#23A55A", "#F0B232", "#F23F43", "#9B59B6", "#1ABC9C"];
+      const colors = ["var(--avatar-0)", "var(--avatar-1)", "var(--avatar-2)", "var(--avatar-3)", "var(--avatar-4)", "var(--avatar-5)"];
       let hash = 0;
       for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
       return colors[Math.abs(hash) % colors.length];
@@ -1416,9 +1416,9 @@ const PeerTile = React.memo(
     return (
       <div
         onClick={onClick}
-        className={`relative bg-[#0E0F14] rounded-xl overflow-hidden cursor-pointer transition-all duration-200 select-none group flex items-center justify-center border ${
+        className={`relative bg-surface-0 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 select-none group flex items-center justify-center border ${
           isActiveSpeaker
-            ? "border-[#23A55A] shadow-[0_0_20px_rgba(35,165,90,0.35)]"
+            ? "border-ok shadow-[0_0_20px_rgba(35,165,90,0.35)]"
             : "border-white/[0.06] hover:border-white/[0.12]"
         }`}
       >
@@ -1434,10 +1434,10 @@ const PeerTile = React.memo(
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-[#0E0F14] relative">
+          <div className="w-full h-full flex flex-col items-center justify-center bg-surface-0 relative">
             <div
               className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-lg transition-transform ${
-                isActiveSpeaker ? "scale-105 ring-2 ring-[#23A55A]" : ""
+                isActiveSpeaker ? "scale-105 ring-2 ring-ok" : ""
               }`}
               style={{ backgroundColor: getAvatarColor(peer.username) }}
             >
@@ -1449,7 +1449,7 @@ const PeerTile = React.memo(
         {/* TOP-RIGHT STATUS BADGES */}
         <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-10">
           {peer.audioEnabled === false && (
-            <div className="bg-[#F23F43]/90 text-white p-1 rounded backdrop-blur-md shadow-md" title="Muted">
+            <div className="bg-danger/90 text-white p-1 rounded backdrop-blur-md shadow-md" title="Muted">
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 19L5 5m14 0L5 19M12 1v6m0 4v4m-4-4h8" />
               </svg>
@@ -1457,7 +1457,7 @@ const PeerTile = React.memo(
           )}
 
           {peer.videoEnabled === false && (
-            <div className="bg-[#0E0F14]/80 text-[#949BA4] p-1 rounded backdrop-blur-md border border-white/10 shadow-md" title="Camera Off">
+            <div className="bg-surface-0/80 text-dim p-1 rounded backdrop-blur-md border border-white/10 shadow-md" title="Camera Off">
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
@@ -1466,17 +1466,17 @@ const PeerTile = React.memo(
         </div>
 
         {/* BOTTOM-LEFT NAME TAG WITH LIVE EQUALIZER */}
-        <div className="absolute bottom-2.5 left-2.5 bg-[#08090C]/80 backdrop-blur-md px-2 py-1 rounded text-xs font-semibold text-white flex items-center gap-1.5 border border-white/10 shadow z-10">
+        <div className="absolute bottom-2.5 left-2.5 bg-canvas/80 backdrop-blur-md px-2 py-1 rounded text-xs font-semibold text-white flex items-center gap-1.5 border border-white/10 shadow z-10">
           {isActiveSpeaker && (
             <span className="flex items-end gap-[2px] h-3">
-              <span className="w-[2px] h-full bg-[#23A55A] rounded-full animate-pulse" />
-              <span className="w-[2px] h-2 bg-[#23A55A] rounded-full animate-pulse delay-75" />
-              <span className="w-[2px] h-3 bg-[#23A55A] rounded-full animate-pulse delay-150" />
+              <span className="w-[2px] h-full bg-ok rounded-full animate-pulse" />
+              <span className="w-[2px] h-2 bg-ok rounded-full animate-pulse delay-75" />
+              <span className="w-[2px] h-3 bg-ok rounded-full animate-pulse delay-150" />
             </span>
           )}
           <span className="max-w-[110px] truncate text-[12px]">{peer.username}</span>
           {peer.isSelf && (
-            <span className="text-[9px] bg-[#5865F2] text-white px-1 py-0.2 rounded font-bold">
+            <span className="text-[9px] bg-accent text-on-accent px-1 py-0.2 rounded font-bold">
               YOU
             </span>
           )}

@@ -53,16 +53,16 @@ export default function JoinPasswordDialog({ channelName, onJoin, onClose }: Pro
         aria-modal="true"
         aria-labelledby="join-password-title"
         onSubmit={submit}
-        className="w-full max-w-sm bg-[#12141A] border border-white/[0.08] rounded-xl p-5 shadow-2xl"
+        className="w-full max-w-sm bg-surface-1 border border-white/[0.08] rounded-xl p-5 shadow-2xl"
       >
-        <h2 id="join-password-title" className="text-base font-bold text-white tracking-tight break-words">
+        <h2 id="join-password-title" className="font-display text-2xl leading-tight text-white break-words">
           🔒 Join #{channelName}
         </h2>
-        <p className="text-[12px] text-[#949BA4] mt-1 leading-relaxed">
+        <p className="text-[12px] text-dim mt-1 leading-relaxed">
           This channel is encrypted. Ask a member for the password.
         </p>
         <label className="block mt-4">
-          <span className="text-[11px] font-semibold text-[#949BA4] uppercase tracking-wider">Password</span>
+          <span className="text-[11px] font-semibold text-dim uppercase tracking-wider">Password</span>
           <input
             ref={inputRef}
             type="password"
@@ -74,11 +74,11 @@ export default function JoinPasswordDialog({ channelName, onJoin, onClose }: Pro
             }}
             disabled={busy}
             aria-invalid={!!error}
-            className="mt-1 w-full bg-[#1E212D] border border-white/[0.06] focus:border-white/[0.18] rounded px-2.5 py-2 text-sm text-[#F2F3F5] outline-none disabled:opacity-60"
+            className="mt-1 w-full bg-surface-3 border border-white/[0.06] focus:border-white/[0.18] rounded px-2.5 py-2 text-sm text-ink outline-none disabled:opacity-60"
           />
         </label>
         {error && (
-          <p role="alert" className="mt-2 text-[12px] text-[#F23F43]">
+          <p role="alert" className="mt-2 text-[12px] text-danger">
             {error}
           </p>
         )}
@@ -87,14 +87,14 @@ export default function JoinPasswordDialog({ channelName, onJoin, onClose }: Pro
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="px-4 py-2 bg-white/[0.06] hover:bg-white/[0.1] disabled:opacity-40 text-[#F2F3F5] text-xs font-semibold rounded-md transition cursor-pointer"
+            className="px-4 py-2 bg-white/[0.06] hover:bg-white/[0.1] disabled:opacity-40 text-ink text-xs font-semibold rounded-md transition cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={!password || busy}
-            className="px-4 py-2 bg-[#F0B232] hover:bg-[#D99E22] disabled:opacity-40 disabled:cursor-not-allowed text-[#08090C] text-xs font-semibold rounded-md transition cursor-pointer"
+            className="px-4 py-2 bg-warn hover:bg-warn-hover brut disabled:opacity-40 disabled:cursor-not-allowed text-canvas text-xs font-semibold rounded-md transition cursor-pointer"
           >
             {busy ? "Checking…" : "Join"}
           </button>

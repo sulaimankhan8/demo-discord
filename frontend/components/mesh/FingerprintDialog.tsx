@@ -33,12 +33,12 @@ export default function FingerprintDialog({ name, theirFingerprint, myFingerprin
         role="dialog"
         aria-modal="true"
         aria-labelledby="fingerprint-title"
-        className="w-full max-w-sm bg-[#12141A] border border-white/[0.08] rounded-xl p-5 shadow-2xl"
+        className="w-full max-w-sm bg-surface-1 border border-white/[0.08] rounded-xl p-5 shadow-2xl"
       >
-        <h2 id="fingerprint-title" className="text-base font-bold text-white tracking-tight break-words">
+        <h2 id="fingerprint-title" className="font-display text-2xl leading-tight text-white break-words">
           Check it&apos;s really {name}
         </h2>
-        <p className="text-[12px] text-[#949BA4] mt-1 leading-relaxed">
+        <p className="text-[12px] text-dim mt-1 leading-relaxed">
           Meet in person and compare these codes on both phones. If they match, nobody is pretending to be either of
           you.
         </p>
@@ -47,13 +47,13 @@ export default function FingerprintDialog({ name, theirFingerprint, myFingerprin
           <Code label="Your code" value={myFingerprint} />
         </div>
         <div className="mt-5 flex items-center justify-between gap-2">
-          <span className={`text-[12px] font-semibold ${verified ? "text-[#23A55A]" : "text-[#949BA4]"}`}>
+          <span className={`text-[12px] font-semibold ${verified ? "text-ok" : "text-dim"}`}>
             {verified ? "✓ Verified" : "Not verified yet"}
           </span>
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="px-3 py-2 bg-white/[0.06] hover:bg-white/[0.1] text-[#F2F3F5] text-xs font-semibold rounded-md transition cursor-pointer"
+              className="px-3 py-2 bg-white/[0.06] hover:bg-white/[0.1] text-ink text-xs font-semibold rounded-md transition cursor-pointer"
             >
               Close
             </button>
@@ -61,8 +61,8 @@ export default function FingerprintDialog({ name, theirFingerprint, myFingerprin
               onClick={() => onVerify(!verified)}
               className={`px-3 py-2 text-xs font-semibold rounded-md transition cursor-pointer ${
                 verified
-                  ? "bg-white/[0.06] hover:bg-[#F23F43]/15 text-[#949BA4] hover:text-[#F23F43]"
-                  : "bg-[#23A55A] hover:bg-[#1F944F] text-white"
+                  ? "bg-white/[0.06] hover:bg-danger/15 text-dim hover:text-danger"
+                  : "bg-ok hover:bg-ok-hover brut text-on-accent"
               }`}
             >
               {verified ? "Remove verification" : "Codes match"}
@@ -77,8 +77,8 @@ export default function FingerprintDialog({ name, theirFingerprint, myFingerprin
 function Code({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-[11px] font-semibold text-[#949BA4] uppercase tracking-wider">{label}</div>
-      <div className="mt-1 px-3 py-2 rounded-md bg-[#1E212D] border border-white/[0.06] font-mono text-lg text-white tracking-wider text-center">
+      <div className="text-[11px] font-semibold text-dim uppercase tracking-wider">{label}</div>
+      <div className="mt-1 px-3 py-2 rounded-md bg-surface-3 border border-white/[0.06] font-mono text-lg text-white tracking-wider text-center">
         {formatFingerprint(value)}
       </div>
     </div>

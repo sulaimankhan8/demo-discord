@@ -38,6 +38,88 @@ Visit **`http://localhost:3000`** in your browser.
 
 ---
 
+## 📱 Mobile Apps (Android APK & iOS)
+
+The phone apps are the same Next.js frontend wrapped with **Capacitor 8**, plus native Bluetooth mesh plugins (`frontend/android/`, `frontend/ios/`). The normal web build (`npm run dev` / `npm run build`) is not affected by any of this.
+
+### One-time setup (both platforms)
+```bash
+cd frontend
+npm install
+cp .env.capacitor.example .env.capacitor
+```
+Edit `frontend/.env.capacitor` and set the backend address the phone should use. On a phone, `localhost` is the phone itself, so use:
+- Real phone on your Wi-Fi: `http://<your PC's Wi-Fi IP>:4000` (find it with `ipconfig`)
+- Android emulator: `http://10.0.2.2:4000`
+- Production: your `https://` server, with `CAP_ALLOW_HTTP=false`
+
+> The backend URL is baked into the app at build time. If you change `.env.capacitor`, rebuild the app.
+
+### 🤖 Build the Android APK
+
+**Requirements:** Android Studio (with the Android SDK) and **JDK 21** exactly. JDK 17 is too old and the JDK 25 bundled with Android Studio is too new for Gradle 8.14. In Android Studio: *Settings → Build Tools → Gradle → Gradle JDK → Download JDK → 21*. For command-line builds, point `JAVA_HOME` at a JDK 21.
+
+1. **Build the web app and copy it into the Android project:**
+   ```bash
+   npm run build:app
+   ```
+2. **Compile the APK** — either:
+   - Android Studio: `npm run app:open`, then *Build → Build App Bundle(s) / APK(s) → Build APK(s)*, or
+   - Command line (from `frontend/android`):
+     ```bash
+     ./gradlew assembleDebug
+     ```
+     (PowerShell / cmd: `.\gradlew.bat assembleDebug`)
+
+   The APK is written to `frontend/android/app/build/outputs/apk/debug/app-debug.apk`.
+3. **Install it on a phone** (USB debugging on, phone plugged in):
+   ```bash
+   adb install -r app/build/outputs/apk/debug/app-debug.apk
+   ```
+   Or copy the APK to the phone and open it (allow "install unknown apps"). Shortcut for steps 2–3: `npm run app:run` builds and launches on a connected phone.
+
+**Release APK:** Android Studio → *Build → Generate Signed App Bundle / APK*, create or pick a keystore, choose *APK → release*. Use an `https` backend for release builds.
+
+### 🍎 Build the iOS app (Mac only)
+
+**Requirements:** a Mac with Xcode and Node 22. Swift can't be compiled on Windows.
+
+1. Do the one-time setup above on the Mac (set the backend to the Mac's Wi-Fi IP or your server).
+2. **Build and copy into the iOS project, then open Xcode:**
+   ```bash
+   npm run build:ios
+   npm run ios:open
+   ```
+3. In Xcode: select the **App** target → *Signing & Capabilities* → choose your **Team** (a free Apple ID works, but the app expires after 7 days).
+4. Plug in the iPhone, select it as the run target, and press **Run** (▶). On the phone, trust the developer under *Settings → General → VPN & Device Management*.
+
+**Shareable `.ipa` file:** needs a paid Apple Developer account. In Xcode, pick *Any iOS Device* → *Product → Archive* → *Distribute App* (Ad Hoc or TestFlight).
+
+### 🔁 Building and testing a new version
+
+Each time the code changes:
+
+1. Pull the latest code and run `npm install` in `frontend/` (in case dependencies changed).
+2. Run the mesh tests first: `npm run test:mesh`.
+3. Rebuild: `npm run build:app` (Android) or `npm run build:ios` (iOS). Skipping this step leaves the **old** web code inside the app.
+4. Compile and install as above. `adb install -r` replaces the old app and keeps its data.
+   - If install fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, the old APK was signed on a different PC. Uninstall it first: `adb uninstall com.demodiscord.app` (this deletes the app's local data and mesh identity).
+   - For a release you hand out, bump `versionCode` (and `versionName`) in `frontend/android/app/build.gradle` so phones accept it as an update.
+5. Install the same build on **every** test phone, so they all run the same mesh code.
+
+**What to check on the phones:**
+- **Online:** log in, send a message, react, join voice (allow the microphone).
+- **Mesh, 2 phones:** airplane mode on, Bluetooth on, open **Mesh** on both, allow Bluetooth/notifications, chat both ways. The status should show "1 link".
+- **Relay, 3 phones in a line:** A and C out of range of each other; A's message should reach C as "2 hops" and B's **Relayed** count should go up. Repeat with B's screen off.
+- **Late joiner:** chat on A and B, then bring C into range; C should get the earlier messages.
+- **iPhone ↔ Android:** chat both ways, then with the iPhone app in the background (slower on iOS by design).
+- **Power & key storage:** the side panel's "This device" should show the power mode and "device-sealed"; below 20 % battery (not charging) the pill should show 🔋.
+- **Debug logs (Android):** `adb logcat -s BleMesh`.
+
+More detail and the full release test checklist: [08. Offline BLE Mesh Plan](./docs/08_OFFLINE_BLE_MESH_IMPLEMENTATION_PLAN.md) and [10. Mesh Channels Plan](./docs/10_MESH_CHANNELS_IMPLEMENTATION_PLAN.md).
+
+---
+
 ## 📑 Complete Documentation Suite
 
 Comprehensive technical deep-dives and guides are located in the [`docs/`](./docs) folder:

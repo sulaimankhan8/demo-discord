@@ -27,27 +27,27 @@ export default function MeshSidebar({ state, onNickname, onSimPosition, onStopSi
   const { me, peers, stats, mode } = state;
 
   return (
-    <aside className="w-60 bg-[#12141A] border-l border-white/[0.04] p-3 overflow-y-auto shrink-0 hidden lg:flex flex-col gap-5">
+    <aside className="w-60 bg-surface-1 border-l border-white/[0.04] p-3 overflow-y-auto shrink-0 hidden lg:flex flex-col gap-5">
       {/* This device */}
       {me && (
         <section>
           <SectionTitle>You</SectionTitle>
           <div className="px-2 mt-1 space-y-2">
             <label className="block">
-              <span className="text-[10px] text-[#6D737F]">Name shown to others</span>
+              <span className="text-[10px] text-muted">Name shown to others</span>
               <input
                 key={me.nickname}
                 defaultValue={me.nickname}
                 maxLength={32}
                 onBlur={(e) => onNickname(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-                className="mt-0.5 w-full bg-[#1E212D] border border-white/[0.06] focus:border-white/[0.18] rounded px-2 py-1 text-xs text-[#F2F3F5] outline-none"
+                className="mt-0.5 w-full bg-surface-3 border border-white/[0.06] focus:border-white/[0.18] rounded px-2 py-1 text-xs text-ink outline-none"
               />
             </label>
             <div>
-              <span className="text-[10px] text-[#6D737F]">Your fingerprint</span>
-              <div className="text-[11px] text-[#DBDEE1] font-mono mt-0.5">{formatFingerprint(me.fingerprint)}</div>
-              <p className="text-[10px] text-[#6D737F] mt-1 leading-snug">
+              <span className="text-[10px] text-muted">Your fingerprint</span>
+              <div className="text-[11px] text-body font-mono mt-0.5">{formatFingerprint(me.fingerprint)}</div>
+              <p className="text-[10px] text-muted mt-1 leading-snug">
                 Compare this in person to check someone is who they say they are.
               </p>
             </div>
@@ -59,7 +59,7 @@ export default function MeshSidebar({ state, onNickname, onSimPosition, onStopSi
       <section>
         <SectionTitle>Nearby — {peers.length}</SectionTitle>
         {peers.length === 0 ? (
-          <p className="px-2 mt-1 text-[11px] text-[#6D737F]">
+          <p className="px-2 mt-1 text-[11px] text-muted">
             {mode === "sim" ? "Open this page in another tab to add a phone." : "Looking for phones in range…"}
           </p>
         ) : (
@@ -74,14 +74,14 @@ export default function MeshSidebar({ state, onNickname, onSimPosition, onStopSi
                     {p.nickname.charAt(0).toUpperCase() || "?"}
                   </div>
                   <span
-                    className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[#12141A] ${
-                      p.direct ? "bg-[#23A55A]" : "bg-[#F0B232]"
+                    className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-surface-1 ${
+                      p.direct ? "bg-ok" : "bg-warn"
                     }`}
                   />
                 </div>
                 <div className="truncate flex-1">
-                  <div className="text-xs font-medium text-[#DBDEE1] truncate">{p.nickname}</div>
-                  <div className="text-[10px] text-[#6D737F] font-mono">
+                  <div className="text-xs font-medium text-body truncate">{p.nickname}</div>
+                  <div className="text-[10px] text-muted font-mono">
                     #{p.fingerprint.slice(0, 4)} · {hopLabel(p.hops)}
                   </div>
                 </div>
@@ -89,7 +89,7 @@ export default function MeshSidebar({ state, onNickname, onSimPosition, onStopSi
                   onClick={() => onDirect(p.key)}
                   aria-label={`Message ${p.nickname}`}
                   title={`Message ${p.nickname}`}
-                  className="shrink-0 p-1 rounded text-[#6D737F] hover:text-white hover:bg-white/[0.06] cursor-pointer"
+                  className="shrink-0 p-1 rounded text-muted hover:text-white hover:bg-white/[0.06] cursor-pointer"
                 >
                   <svg className="w-3.5 h-3.5 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 5h16v11H8l-4 4V5z" />
@@ -107,11 +107,11 @@ export default function MeshSidebar({ state, onNickname, onSimPosition, onStopSi
           <SectionTitle>Simulation</SectionTitle>
           <div className="px-2 mt-1 space-y-2">
             <label className="block">
-              <span className="text-[10px] text-[#6D737F]">This tab&apos;s position</span>
+              <span className="text-[10px] text-muted">This tab&apos;s position</span>
               <select
                 value={state.simPosition ?? ""}
                 onChange={(e) => onSimPosition(e.target.value === "" ? null : Number(e.target.value))}
-                className="mt-0.5 w-full bg-[#1E212D] border border-white/[0.06] rounded px-2 py-1 text-xs text-[#F2F3F5] outline-none cursor-pointer"
+                className="mt-0.5 w-full bg-surface-3 border border-white/[0.06] rounded px-2 py-1 text-xs text-ink outline-none cursor-pointer"
               >
                 <option value="">In range of all tabs</option>
                 {SIM_POSITIONS.map((n) => (
@@ -121,12 +121,12 @@ export default function MeshSidebar({ state, onNickname, onSimPosition, onStopSi
                 ))}
               </select>
             </label>
-            <p className="text-[10px] text-[#6D737F] leading-snug">
+            <p className="text-[10px] text-muted leading-snug">
               Tabs only reach tabs one position away. Put three tabs at 1, 2 and 3: messages from 1 reach 3 through 2.
             </p>
             <button
               onClick={onStopSim}
-              className="w-full px-2 py-1 rounded text-[11px] font-semibold text-[#949BA4] bg-white/[0.04] hover:bg-[#F23F43]/15 hover:text-[#F23F43] transition cursor-pointer"
+              className="w-full px-2 py-1 rounded text-[11px] font-semibold text-dim bg-white/[0.04] hover:bg-danger/15 hover:text-danger transition cursor-pointer"
             >
               Stop simulation
             </button>
@@ -140,10 +140,10 @@ export default function MeshSidebar({ state, onNickname, onSimPosition, onStopSi
           <SectionTitle>Internet bridge</SectionTitle>
           <div className="px-2 mt-1 space-y-1.5">
             <div className="flex items-center justify-between gap-2">
-              <span className="flex items-center gap-1.5 text-[11px] text-[#DBDEE1]">
+              <span className="flex items-center gap-1.5 text-[11px] text-body">
                 <span
                   className={`w-1.5 h-1.5 rounded-full ${
-                    state.bridge === "up" ? "bg-[#23A55A]" : state.bridge === "connecting" ? "bg-[#F0B232]" : "bg-[#6D737F]"
+                    state.bridge === "up" ? "bg-ok" : state.bridge === "connecting" ? "bg-warn" : "bg-muted"
                   }`}
                 />
                 {!state.bridgeEnabled
@@ -156,12 +156,12 @@ export default function MeshSidebar({ state, onNickname, onSimPosition, onStopSi
               </span>
               <button
                 onClick={() => onBridge(!state.bridgeEnabled)}
-                className="px-2 py-0.5 rounded text-[10px] font-semibold text-[#949BA4] bg-white/[0.04] hover:bg-white/[0.08] hover:text-[#DBDEE1] transition cursor-pointer"
+                className="px-2 py-0.5 rounded text-[10px] font-semibold text-dim bg-white/[0.04] hover:bg-white/[0.08] hover:text-body transition cursor-pointer"
               >
                 {state.bridgeEnabled ? "Turn off" : "Turn on"}
               </button>
             </div>
-            <p className="text-[10px] text-[#6D737F] leading-snug">
+            <p className="text-[10px] text-muted leading-snug">
               Carries 🌐 channels between groups far apart whenever this phone has internet. The server sees your IP
               address, your key and channel tags, but never what locked channels say.
             </p>
@@ -180,33 +180,33 @@ export default function MeshSidebar({ state, onNickname, onSimPosition, onStopSi
           }}
           className={`mx-2 mb-2 w-[calc(100%-1rem)] px-2 py-1 rounded text-[11px] font-semibold transition cursor-pointer ${
             confirmWipe
-              ? "bg-[#F23F43] text-white"
-              : "text-[#949BA4] bg-white/[0.04] hover:bg-[#F23F43]/15 hover:text-[#F23F43]"
+              ? "bg-danger text-on-danger"
+              : "text-dim bg-white/[0.04] hover:bg-danger/15 hover:text-danger"
           }`}
           title="Deletes all mesh messages, channels, keys and your identity on this device"
         >
           {confirmWipe ? "Tap again to wipe everything" : "Wipe mesh data"}
         </button>
-        <dl className="px-2 mt-1 grid grid-cols-2 gap-y-0.5 text-[10px] font-mono text-[#6D737F]">
+        <dl className="px-2 mt-1 grid grid-cols-2 gap-y-0.5 text-[10px] font-mono text-muted">
           <dt>Links</dt>
-          <dd className="text-right text-[#DBDEE1]">{state.links}</dd>
+          <dd className="text-right text-body">{state.links}</dd>
           <dt>Received</dt>
-          <dd className="text-right text-[#DBDEE1]">{stats.received}</dd>
+          <dd className="text-right text-body">{stats.received}</dd>
           <dt>Relayed</dt>
-          <dd className="text-right text-[#DBDEE1]">{stats.relayed}</dd>
+          <dd className="text-right text-body">{stats.relayed}</dd>
           <dt>Dropped</dt>
-          <dd className="text-right text-[#DBDEE1]">{stats.dropped}</dd>
+          <dd className="text-right text-body">{stats.dropped}</dd>
           <dt>Power</dt>
-          <dd className="text-right text-[#DBDEE1]">
+          <dd className="text-right text-body">
             {state.power === "low" ? "low battery" : state.power === "background" ? "background" : state.power ? "normal" : "—"}
           </dd>
           <dt>Keys</dt>
-          <dd className="text-right text-[#DBDEE1]" title="Whether this device's mesh keys are sealed with the phone's secure key store">
+          <dd className="text-right text-body" title="Whether this device's mesh keys are sealed with the phone's secure key store">
             {state.keysProtected ? "device-sealed" : "not sealed"}
           </dd>
         </dl>
         {state.power === "low" && (
-          <p className="px-2 mt-1 text-[10px] text-[#6D737F] leading-snug">
+          <p className="px-2 mt-1 text-[10px] text-muted leading-snug">
             Battery is low: scanning less, fewer links, and not carrying messages for channels you&apos;re not in.
           </p>
         )}
@@ -217,6 +217,6 @@ export default function MeshSidebar({ state, onNickname, onSimPosition, onStopSi
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-[11px] font-semibold text-[#6D737F] uppercase tracking-wider px-2 py-1">{children}</div>
+    <div className="text-[11px] font-semibold text-muted uppercase tracking-wider px-2 py-1">{children}</div>
   );
 }

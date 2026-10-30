@@ -1,62 +1,198 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&family=Silkscreen:wght@400;700&display=swap');
 @import "tailwindcss";
 
+/*
+ * Theme: "Field Radio" — dark, amber actions, green mesh, mono status labels,
+ * with hard brutalist edges (small radii, offset shadows) and a serif for titles.
+ * Every color class in the app (bg-accent, text-dim, border-surface-0 …) reads
+ * these tokens, so `.theme-1bit` below can re-skin a whole subtree.
+ */
+@theme {
+  --font-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
+
+  --color-canvas: #0a0b0a;
+  --color-surface-0: #0d0f0e;
+  --color-surface-1: #121413;
+  --color-surface-2: #161917;
+  --color-surface-3: #1e221f;
+  --color-elevated: #262b27;
+
+  --color-ink: #ece9e0;
+  --color-body: #d9d8d0;
+  --color-dim: #a9ada4;
+  --color-muted: #8a8f88;
+
+  --color-accent: #ffb020;
+  --color-accent-hover: #e89c0c;
+  --color-on-accent: #111311;
+  --color-ok: #5fd383;
+  --color-ok-hover: #4cbf70;
+  --color-danger: #e5484d;
+  --color-danger-hover: #cc3a3f;
+  --color-on-danger: #ffffff;
+  --color-warn: #f5c542;
+  --color-warn-hover: #e0b030;
+  --color-mesh: #6fdc8c;
+
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+  --radius-2xl: 10px;
+  --radius-3xl: 14px;
+
+  --shadow-sm: 2px 2px 0 0 rgb(0 0 0 / 1);
+  --shadow-md: 3px 3px 0 0 rgb(0 0 0 / 1);
+  --shadow-lg: 4px 4px 0 0 rgb(0 0 0 / 1);
+  --shadow-xl: 5px 5px 0 0 rgb(0 0 0 / 1);
+  --shadow-2xl: 6px 6px 0 0 rgb(0 0 0 / 1);
+}
+
 :root {
-  --bg-canvas: #08090c;
-  --bg-surface-0: #0e0f14;
-  --bg-surface-1: #12141a;
-  --bg-surface-2: #171922;
-  --bg-surface-3: #1e212d;
-  --bg-surface-elevated: #252836;
-  
-  --border-subtle: rgba(255, 255, 255, 0.05);
-  --border-medium: rgba(255, 255, 255, 0.10);
-  --border-highlight: rgba(255, 255, 255, 0.18);
-  
-  --text-primary: #f2f3f5;
-  --text-secondary: #949ba4;
-  --text-muted: #6d737f;
-  
-  --accent-blurple: #5865f2;
-  --accent-blurple-hover: #4752c4;
-  --status-online: #23a55a;
-  --status-speaking: #23a55a;
-  --status-dnd: #f23f43;
-  --status-idle: #f0b232;
-  
+  /* Avatar fills: muted tones that sit on the dark ground, white initials stay readable. */
+  --avatar-0: #4a5a8a;
+  --avatar-1: #3d6b4c;
+  --avatar-2: #8a6a22;
+  --avatar-3: #8a3d3a;
+  --avatar-4: #6a4a80;
+  --avatar-5: #2f6b66;
+
+  /* Older names still used in a few places. */
+  --bg-canvas: var(--color-canvas);
+  --bg-surface-0: var(--color-surface-0);
+  --bg-surface-1: var(--color-surface-1);
+  --bg-surface-2: var(--color-surface-2);
+  --bg-surface-3: var(--color-surface-3);
+  --bg-surface-elevated: var(--color-elevated);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-medium: rgba(255, 255, 255, 0.11);
+  --border-highlight: rgba(255, 255, 255, 0.2);
+  --text-primary: var(--color-ink);
+  --text-secondary: var(--color-dim);
+  --text-muted: var(--color-muted);
+  --accent-blurple: var(--color-accent);
+  --accent-blurple-hover: var(--color-accent-hover);
+  --status-online: var(--color-ok);
+  --status-speaking: var(--color-ok);
+  --status-dnd: var(--color-danger);
+  --status-idle: var(--color-warn);
+
   --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  color-scheme: dark;
+}
+
+/*
+ * 1-bit: used only for the offline mesh. Pure black and white, pixel titles,
+ * square corners. Same tokens, so the mesh screens need no extra classes.
+ */
+.theme-1bit {
+  --font-sans: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --font-display: "Silkscreen", "JetBrains Mono", monospace;
+
+  --color-canvas: #000;
+  --color-surface-0: #000;
+  --color-surface-1: #000;
+  --color-surface-2: #000;
+  --color-surface-3: #000;
+  --color-elevated: #000;
+  --color-ink: #fff;
+  --color-body: #fff;
+  --color-dim: #d4d4d4;
+  --color-muted: #b0b0b0;
+  --color-accent: #fff;
+  --color-accent-hover: #d4d4d4;
+  --color-on-accent: #000;
+  --color-ok: #fff;
+  --color-ok-hover: #d4d4d4;
+  --color-danger: #fff;
+  --color-danger-hover: #d4d4d4;
+  --color-on-danger: #000;
+  --color-warn: #fff;
+  --color-warn-hover: #d4d4d4;
+  --color-mesh: #fff;
+
+  --avatar-0: #000;
+  --avatar-1: #000;
+  --avatar-2: #000;
+  --avatar-3: #000;
+  --avatar-4: #000;
+  --avatar-5: #000;
+
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-2xl: 0;
+  --radius-3xl: 0;
+
+  background-color: #000;
+  color: #fff;
+  font-family: var(--font-sans);
+}
+
+/* Hairlines would vanish on pure black: draw them solid white. */
+.theme-1bit [class*="border-white"] {
+  border-color: #fff;
+}
+/* Avatars are black squares with a white outline. */
+.theme-1bit [style*="--avatar"] {
+  box-shadow: inset 0 0 0 2px #fff;
+}
+.theme-1bit ::selection {
+  background: #fff;
+  color: #000;
+}
+/* Ordered-dither ground for empty areas. */
+.dither {
+  background-image: repeating-conic-gradient(#000 0 25%, #222 0 50%);
+  background-size: 4px 4px;
 }
 
 body {
-  background-color: var(--bg-canvas);
-  color: var(--text-primary);
-  font-family: 'Geist', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
   overflow-x: hidden;
 }
 
-/* Monospace font for telemetry, timestamps & metrics */
-.font-mono {
-  font-family: 'JetBrains Mono', monospace;
-}
-
-/* Discord-Style Hairline Surface */
+/* Hairline surfaces */
 .surface-panel {
-  background-color: var(--bg-surface-1);
+  background-color: var(--color-surface-1);
   border: 1px solid var(--border-subtle);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.03);
 }
 
 .surface-stage {
-  background-color: var(--bg-surface-2);
+  background-color: var(--color-surface-2);
   border: 1px solid var(--border-subtle);
 }
 
 .surface-card {
-  background-color: var(--bg-surface-3);
+  background-color: var(--color-surface-3);
   border: 1px solid var(--border-medium);
 }
 
-/* Custom Studio Scrollbar */
+/* Brutalist block: solid black edge and a hard offset shadow. */
+.brut {
+  border: 2px solid #000;
+  box-shadow: 3px 3px 0 0 #000;
+}
+.theme-1bit .brut {
+  border-color: #fff;
+  box-shadow: 3px 3px 0 0 #fff;
+}
+
+/* Safe-area padding for phones (env() on iOS, Capacitor's CSS vars on Android). */
+@utility pt-safe {
+  padding-top: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
+}
+@utility pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
+}
+
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -67,29 +203,35 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 0;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.26);
 }
 
-/* Active Speaker Acoustic Halo Pulse */
+/* Active speaker pulse */
 @keyframes acousticPulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(35, 165, 90, 0.5);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-ok) 50%, transparent);
   }
   70% {
-    box-shadow: 0 0 0 8px rgba(35, 165, 90, 0);
+    box-shadow: 0 0 0 8px transparent;
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(35, 165, 90, 0);
+    box-shadow: 0 0 0 0 transparent;
   }
 }
 
 .speaking-halo {
-  border-color: #23a55a !important;
-  box-shadow: 0 0 18px rgba(35, 165, 90, 0.4), inset 0 0 12px rgba(35, 165, 90, 0.15) !important;
+  border-color: var(--color-ok) !important;
+  box-shadow: 0 0 0 2px var(--color-ok), 4px 4px 0 0 #000 !important;
   animation: acousticPulse 2s infinite var(--ease-spring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .speaking-halo {
+    animation: none;
+  }
 }

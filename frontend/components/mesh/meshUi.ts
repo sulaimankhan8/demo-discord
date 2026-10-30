@@ -1,6 +1,6 @@
 // Small display helpers for the mesh UI (kept separate from ChatBox on purpose).
 
-const AVATAR_COLORS = ["#5865F2", "#23A55A", "#F0B232", "#F23F43", "#9B59B6", "#1ABC9C"];
+const AVATAR_COLORS = ["var(--avatar-0)", "var(--avatar-1)", "var(--avatar-2)", "var(--avatar-3)", "var(--avatar-4)", "var(--avatar-5)"];
 
 export function avatarColor(seed: string): string {
   let hash = 0;
@@ -20,7 +20,7 @@ export function formatTime(timestamp: number): string {
   return date.toDateString() === new Date().toDateString() ? `Today at ${time}` : `${date.toLocaleDateString()} ${time}`;
 }
 
-export const MESH_ACCENT = "#F0B232";
+export const MESH_ACCENT = "var(--color-mesh)";
 
 export function kindLabel(kind: number): string {
   return ["", "Public", "Password", "Private", "Hidden"][kind] ?? "Channel";

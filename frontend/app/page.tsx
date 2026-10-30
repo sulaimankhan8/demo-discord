@@ -11,8 +11,8 @@ export default function Page() {
   const router = useRouter();
 
   const getAvatarColor = (name: string) => {
-    if (!name) return "#5865F2";
-    const colors = ["#5865F2", "#23A55A", "#F0B232", "#F23F43", "#9B59B6", "#1ABC9C"];
+    if (!name) return "var(--avatar-0)";
+    const colors = ["var(--avatar-0)", "var(--avatar-1)", "var(--avatar-2)", "var(--avatar-3)", "var(--avatar-4)", "var(--avatar-5)"];
     let hash = 0;
     for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
     return colors[Math.abs(hash) % colors.length];
@@ -56,9 +56,9 @@ export default function Page() {
   };
 
   return (
-    <div className="min-h-screen bg-[#08090C] flex flex-col items-center justify-center p-4 font-sans text-[#F2F3F5] select-none relative">
+    <div className="min-h-screen bg-canvas flex flex-col items-center justify-center p-4 font-sans text-ink select-none relative">
       {/* Studio Hairline Card */}
-      <div className="w-full max-w-[400px] bg-[#12141A] border border-white/[0.08] rounded-2xl p-8 shadow-2xl shadow-black/80 relative z-10">
+      <div className="w-full max-w-[400px] bg-surface-1 border border-white/[0.08] rounded-2xl p-8 shadow-2xl shadow-black/80 relative z-10">
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center mb-6">
           <div
@@ -72,23 +72,23 @@ export default function Page() {
             )}
           </div>
 
-          <h1 className="text-xl font-bold tracking-tight text-white">
+          <h1 className="font-display text-4xl leading-none text-white">
             Realtime Workspace
           </h1>
-          <p className="text-xs text-[#949BA4] mt-1 font-mono">
+          <p className="text-xs text-dim mt-1 font-mono">
             SFU WebRTC Voice & Distributed Stream Engine
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 p-2.5 bg-[#F23F43]/10 border border-[#F23F43]/30 rounded-lg text-[#F23F43] text-xs text-center font-medium">
+          <div className="mb-4 p-2.5 bg-danger/10 border border-danger/30 rounded-lg text-danger text-xs text-center font-medium">
             {error}
           </div>
         )}
 
         <div className="space-y-4">
           <div>
-            <label className="block text-[11px] font-semibold text-[#949BA4] uppercase tracking-wider mb-2">
+            <label className="block text-[11px] font-semibold text-dim uppercase tracking-wider mb-2">
               Username
             </label>
             <input
@@ -101,7 +101,7 @@ export default function Page() {
               onKeyDown={(e) => e.key === "Enter" && login()}
               placeholder="e.g. Alex, Neo, Trinity"
               maxLength={24}
-              className="w-full px-3.5 py-2.5 bg-[#0E0F14] border border-white/[0.08] focus:border-[#5865F2] focus:ring-1 focus:ring-[#5865F2] rounded-lg text-sm text-white placeholder-[#6D737F] outline-none transition font-medium"
+              className="w-full px-3.5 py-2.5 bg-surface-0 border border-white/[0.08] focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-sm text-white placeholder-muted outline-none transition font-medium"
               autoFocus
             />
           </div>
@@ -109,7 +109,7 @@ export default function Page() {
           <button
             onClick={login}
             disabled={loading || !username.trim()}
-            className="w-full py-2.5 bg-[#5865F2] hover:bg-[#4752C4] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg text-sm transition shadow-md shadow-[#5865F2]/20 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
+            className="w-full py-2.5 bg-accent hover:bg-accent-hover brut disabled:opacity-50 disabled:cursor-not-allowed text-on-accent font-semibold rounded-lg text-sm transition shadow-md shadow-accent/20 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
           >
             {loading ? (
               <span>Connecting...</span>
@@ -120,9 +120,9 @@ export default function Page() {
         </div>
 
         {/* Telemetry Footer */}
-        <div className="mt-6 pt-4 border-t border-white/[0.05] flex items-center justify-between text-[10px] text-[#6D737F] font-mono">
+        <div className="mt-6 pt-4 border-t border-white/[0.05] flex items-center justify-between text-[10px] text-muted font-mono">
           <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#23A55A]" />
+            <span className="w-1.5 h-1.5 rounded-full bg-ok" />
             <span>SFU Node Ready</span>
           </div>
           <span>Mediasoup v3 • Redis</span>

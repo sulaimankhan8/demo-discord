@@ -92,19 +92,19 @@ export default function CreateChannelDialog({ onCreate, onClose }: Props) {
         aria-modal="true"
         aria-labelledby="create-channel-title"
         onSubmit={submit}
-        className="w-full max-w-md max-h-full overflow-y-auto bg-[#12141A] border border-white/[0.08] rounded-xl p-5 shadow-2xl"
+        className="w-full max-w-md max-h-full overflow-y-auto bg-surface-1 border border-white/[0.08] rounded-xl p-5 shadow-2xl"
       >
-        <h2 id="create-channel-title" className="text-base font-bold text-white tracking-tight">
+        <h2 id="create-channel-title" className="font-display text-2xl leading-tight text-white">
           Create a channel
         </h2>
-        <p className="text-[12px] text-[#949BA4] mt-1 leading-relaxed">
+        <p className="text-[12px] text-dim mt-1 leading-relaxed">
           It lives on every member&apos;s phone, so it keeps working when you&apos;re out of range.
         </p>
 
         <label className="block mt-4">
-          <span className="text-[11px] font-semibold text-[#949BA4] uppercase tracking-wider">Name</span>
-          <div className="mt-1 flex items-center bg-[#1E212D] border border-white/[0.06] focus-within:border-white/[0.18] rounded px-2.5">
-            <span className="text-[#6D737F] text-sm">#</span>
+          <span className="text-[11px] font-semibold text-dim uppercase tracking-wider">Name</span>
+          <div className="mt-1 flex items-center bg-surface-3 border border-white/[0.06] focus-within:border-white/[0.18] rounded px-2.5">
+            <span className="text-muted text-sm">#</span>
             <input
               ref={nameRef}
               value={name}
@@ -114,35 +114,35 @@ export default function CreateChannelDialog({ onCreate, onClose }: Props) {
               }}
               maxLength={40}
               placeholder="team-north"
-              className="w-full bg-transparent px-1.5 py-2 text-sm text-[#F2F3F5] placeholder-[#6D737F] outline-none"
+              className="w-full bg-transparent px-1.5 py-2 text-sm text-ink placeholder-muted outline-none"
             />
           </div>
           {name && slug !== name && (
-            <span className="mt-1 block text-[10px] text-[#6D737F] font-mono">Will be #{slug || "…"}</span>
+            <span className="mt-1 block text-[10px] text-muted font-mono">Will be #{slug || "…"}</span>
           )}
         </label>
 
         <label className="block mt-3">
-          <span className="text-[11px] font-semibold text-[#949BA4] uppercase tracking-wider">
-            Description <span className="normal-case font-normal text-[#6D737F]">(optional)</span>
+          <span className="text-[11px] font-semibold text-dim uppercase tracking-wider">
+            Description <span className="normal-case font-normal text-muted">(optional)</span>
           </span>
           <input
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             maxLength={MAX_CHANNEL_DESC_BYTES}
             placeholder="What it's for"
-            className="mt-1 w-full bg-[#1E212D] border border-white/[0.06] focus:border-white/[0.18] rounded px-2.5 py-2 text-sm text-[#F2F3F5] placeholder-[#6D737F] outline-none"
+            className="mt-1 w-full bg-surface-3 border border-white/[0.06] focus:border-white/[0.18] rounded px-2.5 py-2 text-sm text-ink placeholder-muted outline-none"
           />
         </label>
 
         <fieldset className="mt-3">
-          <legend className="text-[11px] font-semibold text-[#949BA4] uppercase tracking-wider">Who can join</legend>
+          <legend className="text-[11px] font-semibold text-dim uppercase tracking-wider">Who can join</legend>
           <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             {KINDS.map((k) => (
               <label
                 key={k.kind}
                 className={`flex items-start gap-2 p-2 rounded border transition ${
-                  kind === k.kind ? "border-[#F0B232]/50 bg-[#F0B232]/[0.06]" : "border-white/[0.06]"
+                  kind === k.kind ? "border-warn/50 bg-warn/[0.06]" : "border-white/[0.06]"
                 } ${k.ready ? "cursor-pointer hover:border-white/[0.14]" : "opacity-45 cursor-not-allowed"}`}
               >
                 <input
@@ -151,14 +151,14 @@ export default function CreateChannelDialog({ onCreate, onClose }: Props) {
                   checked={kind === k.kind}
                   disabled={!k.ready}
                   onChange={() => setKind(k.kind)}
-                  className="mt-0.5 accent-[#F0B232]"
+                  className="mt-0.5 accent-warn"
                 />
                 <span>
-                  <span className="block text-xs font-semibold text-[#F2F3F5]">
+                  <span className="block text-xs font-semibold text-ink">
                     {k.label}
-                    {!k.ready && <span className="ml-1 font-normal text-[10px] text-[#6D737F]">soon</span>}
+                    {!k.ready && <span className="ml-1 font-normal text-[10px] text-muted">soon</span>}
                   </span>
-                  <span className="block text-[10px] text-[#949BA4] leading-snug">{k.hint}</span>
+                  <span className="block text-[10px] text-dim leading-snug">{k.hint}</span>
                 </span>
               </label>
             ))}
@@ -168,7 +168,7 @@ export default function CreateChannelDialog({ onCreate, onClose }: Props) {
         {isPassword && (
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
             <label className="block">
-              <span className="text-[11px] font-semibold text-[#949BA4] uppercase tracking-wider">Password</span>
+              <span className="text-[11px] font-semibold text-dim uppercase tracking-wider">Password</span>
               <input
                 type="password"
                 autoComplete="new-password"
@@ -177,11 +177,11 @@ export default function CreateChannelDialog({ onCreate, onClose }: Props) {
                   setPassword(e.target.value);
                   setError(null);
                 }}
-                className="mt-1 w-full bg-[#1E212D] border border-white/[0.06] focus:border-white/[0.18] rounded px-2.5 py-2 text-sm text-[#F2F3F5] outline-none"
+                className="mt-1 w-full bg-surface-3 border border-white/[0.06] focus:border-white/[0.18] rounded px-2.5 py-2 text-sm text-ink outline-none"
               />
             </label>
             <label className="block">
-              <span className="text-[11px] font-semibold text-[#949BA4] uppercase tracking-wider">Repeat it</span>
+              <span className="text-[11px] font-semibold text-dim uppercase tracking-wider">Repeat it</span>
               <input
                 type="password"
                 autoComplete="new-password"
@@ -190,10 +190,10 @@ export default function CreateChannelDialog({ onCreate, onClose }: Props) {
                   setConfirm(e.target.value);
                   setError(null);
                 }}
-                className="mt-1 w-full bg-[#1E212D] border border-white/[0.06] focus:border-white/[0.18] rounded px-2.5 py-2 text-sm text-[#F2F3F5] outline-none"
+                className="mt-1 w-full bg-surface-3 border border-white/[0.06] focus:border-white/[0.18] rounded px-2.5 py-2 text-sm text-ink outline-none"
               />
             </label>
-            <p className="sm:col-span-2 text-[10px] text-[#6D737F] leading-snug">
+            <p className="sm:col-span-2 text-[10px] text-muted leading-snug">
               Share it in person. Anyone with it can read the channel, and it can&apos;t be changed later. A long
               phrase is safest.
             </p>
@@ -202,11 +202,11 @@ export default function CreateChannelDialog({ onCreate, onClose }: Props) {
 
         <div className="mt-3 grid grid-cols-2 gap-2">
           <label className="block">
-            <span className="text-[11px] font-semibold text-[#949BA4] uppercase tracking-wider">New members see</span>
+            <span className="text-[11px] font-semibold text-dim uppercase tracking-wider">New members see</span>
             <select
               value={historyPolicy}
               onChange={(e) => setHistoryPolicy(Number(e.target.value) as HistoryPolicy)}
-              className="mt-1 w-full bg-[#1E212D] border border-white/[0.06] rounded px-2 py-2 text-xs text-[#F2F3F5] outline-none cursor-pointer"
+              className="mt-1 w-full bg-surface-3 border border-white/[0.06] rounded px-2 py-2 text-xs text-ink outline-none cursor-pointer"
             >
               <option value={HistoryPolicy.Recent}>Recent messages</option>
               <option value={HistoryPolicy.SinceJoin}>Only after joining</option>
@@ -214,11 +214,11 @@ export default function CreateChannelDialog({ onCreate, onClose }: Props) {
             </select>
           </label>
           <label className="block">
-            <span className="text-[11px] font-semibold text-[#949BA4] uppercase tracking-wider">Keep messages</span>
+            <span className="text-[11px] font-semibold text-dim uppercase tracking-wider">Keep messages</span>
             <select
               value={retentionHours}
               onChange={(e) => setRetentionHours(Number(e.target.value))}
-              className="mt-1 w-full bg-[#1E212D] border border-white/[0.06] rounded px-2 py-2 text-xs text-[#F2F3F5] outline-none cursor-pointer"
+              className="mt-1 w-full bg-surface-3 border border-white/[0.06] rounded px-2 py-2 text-xs text-ink outline-none cursor-pointer"
             >
               {RETENTION.map((r) => (
                 <option key={r.hours} value={r.hours}>
@@ -228,11 +228,11 @@ export default function CreateChannelDialog({ onCreate, onClose }: Props) {
             </select>
           </label>
           <label className="block col-span-2">
-            <span className="text-[11px] font-semibold text-[#949BA4] uppercase tracking-wider">Reach</span>
+            <span className="text-[11px] font-semibold text-dim uppercase tracking-wider">Reach</span>
             <select
               value={ttl}
               onChange={(e) => setTtl(Number(e.target.value))}
-              className="mt-1 w-full bg-[#1E212D] border border-white/[0.06] rounded px-2 py-2 text-xs text-[#F2F3F5] outline-none cursor-pointer"
+              className="mt-1 w-full bg-surface-3 border border-white/[0.06] rounded px-2 py-2 text-xs text-ink outline-none cursor-pointer"
             >
               <option value={7}>Whole mesh (up to 7 phones away)</option>
               <option value={5}>Medium (5 phones away)</option>
@@ -246,11 +246,11 @@ export default function CreateChannelDialog({ onCreate, onClose }: Props) {
             type="checkbox"
             checked={bridge}
             onChange={(e) => setBridge(e.target.checked)}
-            className="mt-0.5 accent-[#F0B232]"
+            className="mt-0.5 accent-warn"
           />
           <span>
-            <span className="block text-xs font-semibold text-[#F2F3F5]">Also carry it over the internet</span>
-            <span className="block text-[10px] text-[#949BA4] leading-snug">
+            <span className="block text-xs font-semibold text-ink">Also carry it over the internet</span>
+            <span className="block text-[10px] text-dim leading-snug">
               When a member&apos;s phone has internet, groups far apart share this channel through the app&apos;s
               server.{" "}
               {kind === ChannelKind.Public
@@ -260,21 +260,21 @@ export default function CreateChannelDialog({ onCreate, onClose }: Props) {
           </span>
         </label>
 
-        {error && <p className="mt-3 text-[12px] text-[#F23F43]">{error}</p>}
+        {error && <p className="mt-3 text-[12px] text-danger">{error}</p>}
 
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="px-4 py-2 bg-white/[0.06] hover:bg-white/[0.1] disabled:opacity-40 text-[#F2F3F5] text-xs font-semibold rounded-md transition cursor-pointer"
+            className="px-4 py-2 bg-white/[0.06] hover:bg-white/[0.1] disabled:opacity-40 text-ink text-xs font-semibold rounded-md transition cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={!slug || busy}
-            className="px-4 py-2 bg-[#F0B232] hover:bg-[#D99E22] disabled:opacity-40 disabled:cursor-not-allowed text-[#08090C] text-xs font-semibold rounded-md transition cursor-pointer"
+            className="px-4 py-2 bg-warn hover:bg-warn-hover brut disabled:opacity-40 disabled:cursor-not-allowed text-canvas text-xs font-semibold rounded-md transition cursor-pointer"
           >
             {busy ? "Creating…" : "Create channel"}
           </button>

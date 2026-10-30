@@ -26,8 +26,8 @@ export default function MeshComposer({ disabled, onSend, placeholder = "Message 
   };
 
   return (
-    <div className="px-4 pb-4 pt-1 bg-[#171922]">
-      <div className="relative flex items-center bg-[#1E212D] border border-white/[0.06] focus-within:border-white/[0.18] rounded-lg px-4 py-2.5 transition">
+    <div className="px-4 pb-4 pt-1 bg-surface-2">
+      <div className="relative flex items-center bg-surface-3 border border-white/[0.06] focus-within:border-white/[0.18] rounded-lg px-4 py-2.5 transition">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -35,17 +35,17 @@ export default function MeshComposer({ disabled, onSend, placeholder = "Message 
           disabled={disabled}
           placeholder={disabled && placeholder.startsWith("Message") ? "Connecting…" : placeholder}
           aria-label={placeholder}
-          className="w-full bg-transparent text-sm text-[#F2F3F5] placeholder-[#6D737F] outline-none font-medium disabled:cursor-not-allowed"
+          className="w-full bg-transparent text-sm text-ink placeholder-muted outline-none font-medium disabled:cursor-not-allowed"
         />
         {bytes > MAX_TEXT_BYTES * 0.8 && (
-          <span className={`ml-2 text-[10px] font-mono shrink-0 ${tooLong ? "text-[#F23F43]" : "text-[#6D737F]"}`}>
+          <span className={`ml-2 text-[10px] font-mono shrink-0 ${tooLong ? "text-danger" : "text-muted"}`}>
             {bytes}/{MAX_TEXT_BYTES}
           </span>
         )}
         <button
           onClick={send}
           disabled={!canSend}
-          className="ml-2 px-3 py-1 bg-[#F0B232] hover:bg-[#D99E22] disabled:opacity-40 disabled:cursor-not-allowed text-[#08090C] text-xs font-semibold rounded transition cursor-pointer"
+          className="ml-2 px-3 py-1 bg-warn hover:bg-warn-hover brut disabled:opacity-40 disabled:cursor-not-allowed text-canvas text-xs font-semibold rounded transition cursor-pointer"
         >
           Send
         </button>
