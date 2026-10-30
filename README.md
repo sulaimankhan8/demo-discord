@@ -106,8 +106,8 @@ npm run apk:copy   # only copy the last built APK into public/downloads/
 ```
 
 - `npm run apk` finds a JDK 21 by itself (`JAVA_HOME` if it is 21, otherwise Android Studio's download in `~/.jdks`).
-- It writes `public/downloads/demo-discord.apk` and `public/downloads/apk.json` (version and size, shown on the button). Run it before `npm run build` when deploying the website.
-- `public/downloads/` is git-ignored, and `build:app` / `build:ios` strip it from the phone app, so the APK never ends up inside itself.
+- It writes `public/downloads/demo-discord.apk` and `public/downloads/apk.json` (version and size, shown on the button). Commit both files and push; Vercel then serves them.
+- `public/downloads/` is committed so hosts that build from git (Vercel) serve the APK. Commit it again after each `npm run apk`. `build:app` / `build:ios` strip it from the phone app, so the APK never ends up inside itself.
 - The published APK is a **debug** build. For a public release, make a signed release APK (Android Studio → *Generate Signed App Bundle / APK*) and bump `versionCode`.
 
 ### 🔁 Building and testing a new version
