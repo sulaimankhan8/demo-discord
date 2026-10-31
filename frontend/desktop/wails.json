@@ -1,0 +1,16 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "Demo Discord",
+  "outputfilename": "demo-discord",
+  "frontend:install": "",
+  "frontend:build": "",
+  "author": {
+    "name": "sulaimankhan8"
+  },
+  "info": {
+    "companyName": "Demo Discord",
+    "productName": "Demo Discord",
+    "productVersion": "0.1.0",
+    "comments": "Chat, voice and an offline Bluetooth mesh"
+  }
+}

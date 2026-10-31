@@ -16,7 +16,8 @@
     "app:open": "cap open android",
     "app:run": "cap run android",
     "build:ios": "dotenv -e .env.capacitor -v BUILD_TARGET=capacitor -- next build && node scripts/strip-downloads.mjs && cap sync ios",
-    "ios:open": "cap open ios"
+    "ios:open": "cap open ios",
+    "desktop": "node scripts/desktop.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",

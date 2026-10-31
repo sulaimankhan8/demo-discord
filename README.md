@@ -143,6 +143,28 @@ This gives you `frontend/ios/App/DemoDiscord.ipa`. Send it to testers by AirDrop
 #### Paid: TestFlight
 With an Apple Developer account, in Xcode pick *Any iOS Device* → *Product → Archive* → *Distribute App* → **TestFlight** (or **Ad Hoc** for specific registered phones). Testers install it from Apple's TestFlight app using a link.
 
+### 🖥️ Desktop app (Windows, with offline mesh)
+
+The desktop app is the same static web build as the phone apps, shown in a native window by **[Wails](https://wails.io)** (Go + the system web view, about 14 MB). A small Go Bluetooth layer (`frontend/desktop/mesh.go`) lets the offline mesh work on a PC.
+
+**Requirements:** [Go 1.26+](https://go.dev/dl/) and Node. Windows 10/11 already has the WebView2 runtime. A PC with Bluetooth is needed for the mesh.
+
+```bash
+cd frontend
+cp .env.desktop.example .env.desktop   # backend address; falls back to .env.capacitor
+npm run desktop
+```
+
+This builds the web app, copies it into `frontend/desktop/dist/`, and compiles `frontend/desktop/build/bin/demo-discord.exe`. The first run downloads the Wails CLI through `go run`, so nothing needs installing globally. `npm run desktop -- --no-web` skips the web build and reuses `out/`.
+
+**How the offline mesh works on desktop:**
+- The PC scans for phones running the mesh and connects to them, using the same Bluetooth protocol as the phone apps. A phone with the app open in **Mesh** shows the PC as a link, and messages relay through it like through any phone.
+- The PC only connects *to* phones (Windows can't host the mesh's Bluetooth service reliably). So **two PCs can't link directly**: they reach each other through a phone in range, or through the internet bridge.
+- Mesh keys are sealed with Windows DPAPI ("device-sealed" in the side panel). App data lives in `%APPDATA%\DemoDiscord`.
+- If Bluetooth is off, the mesh says so and starts on its own once it's turned on.
+
+**Mac / Linux:** the Go code builds there too (`npm run desktop` on that OS), but it hasn't been tested, and mesh keys aren't sealed yet on those systems.
+
 ### ⬇️ APK download on the website
 
 The web version shows a **Download APK** button (login page, Hub, and a download icon in the phone top bar) once an APK has been published. Inside the installed app the button is hidden, and iPhone visitors are told the app is Android only.

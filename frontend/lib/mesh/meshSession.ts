@@ -2,6 +2,7 @@
 // Only the /mesh page uses this. It never touches Socket.IO, mediasoup, or localStorage.user
 // (it only reads the username to suggest a nickname).
 
+import { isDesktopApp } from "../desktop";
 import { loadIdentity } from "./identity";
 import {
   IDLE_SNAPSHOT,
@@ -126,10 +127,10 @@ export function getServerMeshState(): MeshSessionState {
 
 /* ---------------- environment ---------------- */
 
-/** True inside the Capacitor app. */
+/** True inside the phone apps (Capacitor) or the desktop app (Wails): real Bluetooth is available. */
 export function isNativeApp(): boolean {
   const cap = (globalThis as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
-  return cap?.isNativePlatform?.() === true;
+  return cap?.isNativePlatform?.() === true || isDesktopApp();
 }
 
 export function isSimRemembered(): boolean {

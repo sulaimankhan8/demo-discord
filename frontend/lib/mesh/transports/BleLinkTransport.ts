@@ -3,6 +3,7 @@
 // and moves raw frames; this class turns its events into LinkTransport events.
 
 import { registerPlugin, type PluginListenerHandle } from "@capacitor/core";
+import { createDesktopBleMeshPlugin, isDesktopApp } from "../../desktop";
 import { fromBase64, toBase64 } from "../bytes";
 import type { BatteryReading, PowerMode } from "../power";
 import { TransportError, type LinkTransport, type LinkTransportEvents } from "./LinkTransport";
@@ -50,8 +51,9 @@ export interface BleMeshPlugin {
 
 let plugin: BleMeshPlugin | null = null;
 
+/** The phone apps' native plugin, or the desktop app's Go Bluetooth layer. */
 export function getBleMeshPlugin(): BleMeshPlugin {
-  plugin ??= registerPlugin<BleMeshPlugin>("BleMesh");
+  plugin ??= isDesktopApp() ? createDesktopBleMeshPlugin() : registerPlugin<BleMeshPlugin>("BleMesh");
   return plugin;
 }
 
