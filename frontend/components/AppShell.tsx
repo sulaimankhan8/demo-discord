@@ -105,24 +105,25 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
       }`}
     >
       {/* ---------------- PHONE: TOP BAR ---------------- */}
-      <header className="md:hidden shrink-0 flex items-end gap-2 px-4 pt-2 pb-2.5 bg-surface-0 border-b-2 border-black [.theme-1bit_&]:border-white">
-        <div className="flex-1 min-w-0">
-          <div className={`font-mono text-[10px] tracking-[0.12em] truncate ${isMeshActive ? "text-ink" : "text-dim"}`}>
+      {/* Kicker and buttons share the first row; the title gets the full width below. */}
+      <header className="md:hidden shrink-0 flex flex-wrap items-center gap-x-2 px-4 pt-3 pb-3 bg-canvas [.theme-1bit_&]:bg-black [.theme-1bit_&]:border-b-2 [.theme-1bit_&]:border-white">
+        <div className="contents">
+          <div className={`order-1 flex-1 min-w-0 truncate ${isMeshActive ? "font-mono text-[10px] tracking-[0.12em] text-ink" : "text-[12px] font-semibold text-dim"}`}>
             {page.kicker}
             {!isMeshActive && <span className="text-ok"> · ● ONLINE</span>}
           </div>
-          <h1 className={`font-display leading-none truncate mt-1 ${isIos ? "text-[34px]" : "text-[28px]"}`}>
-            {pathname === "/chat" && <span className="italic text-accent">#</span>}
+          <h1 className={`order-3 basis-full font-display font-semibold tracking-[-0.02em] leading-[1.1] truncate mt-1 ${isIos ? "text-[28px]" : "text-[24px]"}`}>
+            {pathname === "/chat" && <span className="text-accent">#</span>}
             {page.title}
           </h1>
         </div>
-        <div className="flex items-center gap-1.5 pb-0.5">
+        <div className="order-2 flex items-center gap-1.5">
           <button
             onClick={toggleMute}
             aria-label={isMicMuted ? "Unmute microphone" : "Mute microphone"}
             aria-pressed={isMicMuted}
-            className={`w-10 h-10 flex items-center justify-center rounded-md brut cursor-pointer ${
-              isMicMuted ? "bg-danger text-on-danger" : "bg-surface-3 text-ink"
+            className={`w-11 h-11 flex items-center justify-center rounded-full cursor-pointer ${
+              isMicMuted ? "bg-danger text-on-danger brut" : "key text-ink"
             }`}
           >
             <svg className="w-[18px] h-[18px] fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -137,8 +138,8 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
             onClick={toggleDeafen}
             aria-label={isDeafened ? "Undeafen" : "Deafen"}
             aria-pressed={isDeafened}
-            className={`w-10 h-10 flex items-center justify-center rounded-md brut cursor-pointer ${
-              isDeafened ? "bg-danger text-on-danger" : "bg-surface-3 text-ink"
+            className={`w-11 h-11 flex items-center justify-center rounded-full cursor-pointer ${
+              isDeafened ? "bg-danger text-on-danger brut" : "key text-ink"
             }`}
           >
             <svg className="w-[18px] h-[18px] fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -159,7 +160,7 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
       </header>
 
       {/* ---------------- COLUMN 1: SERVER RAIL (72px) ---------------- */}
-      <nav className="w-[72px] bg-surface-0 hidden md:flex flex-col items-center py-3 gap-2 border-r border-white/[0.04] z-20 shrink-0">
+      <nav className="w-[76px] bg-canvas hidden md:flex flex-col items-center py-4 gap-2.5 z-20 shrink-0 [.theme-1bit_&]:bg-black [.theme-1bit_&]:border-r-2 [.theme-1bit_&]:border-white">
         {/* Hub / Dashboard Button */}
         <Link
           href="/dashboard"
@@ -167,15 +168,15 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
           title="Workspace Hub"
         >
           <div
-            className={`absolute left-0 w-1 bg-white rounded-r-full transition-all duration-200 ${
+            className={`hidden absolute left-0 w-1 bg-white rounded-r-full transition-all duration-200 ${
               pathname === "/dashboard" ? "h-10" : "h-0 group-hover:h-5"
             }`}
           />
           <div
-            className={`w-12 h-12 rounded-[24px] group-hover:rounded-[16px] flex items-center justify-center transition-all duration-200 shadow-md ${
+            className={`w-12 h-12 rounded-[15px] flex items-center justify-center transition-all duration-200 ${
               pathname === "/dashboard"
-                ? "bg-accent rounded-[16px] text-on-accent"
-                : "bg-surface-2 text-dim group-hover:bg-accent group-hover:text-on-accent"
+                ? "bg-accent text-on-accent brut"
+                : "key text-dim group-hover:text-accent"
             }`}
           >
             {/* Sleek Geometric Pulse Hub SVG */}
@@ -194,15 +195,15 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
           title="Chat Channel"
         >
           <div
-            className={`absolute left-0 w-1 bg-white rounded-r-full transition-all duration-200 ${
+            className={`hidden absolute left-0 w-1 bg-white rounded-r-full transition-all duration-200 ${
               isChatActive ? "h-10" : "h-0 group-hover:h-5"
             }`}
           />
           <div
-            className={`w-12 h-12 rounded-[24px] group-hover:rounded-[16px] flex items-center justify-center transition-all duration-200 border border-white/[0.06] shadow-md ${
+            className={`w-12 h-12 rounded-[15px] flex items-center justify-center transition-all duration-200 ${
               isChatActive
-                ? "bg-surface-3 text-accent border-accent/40 rounded-[16px]"
-                : "bg-surface-2 text-dim group-hover:bg-surface-3 group-hover:text-white"
+                ? "bg-accent text-on-accent brut"
+                : "key text-dim group-hover:text-accent"
             }`}
           >
             {/* Chat Bubble SVG */}
@@ -219,15 +220,15 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
           title="Voice & Video Stage (SFU)"
         >
           <div
-            className={`absolute left-0 w-1 bg-white rounded-r-full transition-all duration-200 ${
+            className={`hidden absolute left-0 w-1 bg-white rounded-r-full transition-all duration-200 ${
               isVoiceActive ? "h-10" : "h-0 group-hover:h-5"
             }`}
           />
           <div
-            className={`w-12 h-12 rounded-[24px] group-hover:rounded-[16px] flex items-center justify-center transition-all duration-200 border border-white/[0.06] shadow-md ${
+            className={`w-12 h-12 rounded-[15px] flex items-center justify-center transition-all duration-200 ${
               isVoiceActive
-                ? "bg-ok/20 text-ok border-ok/50 rounded-[16px]"
-                : "bg-surface-2 text-dim group-hover:bg-ok/15 group-hover:text-ok"
+                ? "bg-voice text-on-accent brut"
+                : "key text-dim group-hover:text-voice"
             }`}
           >
             {/* Live Audio Waves SVG */}
@@ -244,15 +245,15 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
           title="Offline Mesh (no internet)"
         >
           <div
-            className={`absolute left-0 w-1 bg-white rounded-r-full transition-all duration-200 ${
+            className={`hidden absolute left-0 w-1 bg-white rounded-r-full transition-all duration-200 ${
               isMeshActive ? "h-10" : "h-0 group-hover:h-5"
             }`}
           />
           <div
-            className={`w-12 h-12 rounded-[24px] group-hover:rounded-[16px] flex items-center justify-center transition-all duration-200 border border-white/[0.06] shadow-md ${
+            className={`w-12 h-12 rounded-[15px] flex items-center justify-center transition-all duration-200 ${
               isMeshActive
-                ? "bg-warn/15 text-warn border-warn/50 rounded-[16px]"
-                : "bg-surface-2 text-dim group-hover:bg-warn/10 group-hover:text-warn"
+                ? "bg-mesh text-on-accent brut"
+                : "key text-mesh"
             }`}
           >
             <MeshIcon />
@@ -265,7 +266,7 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
           <button
             onClick={logout}
             title="Disconnect & Exit"
-            className="w-10 h-10 rounded-[20px] hover:rounded-[12px] bg-surface-2 hover:bg-danger/20 text-dim hover:text-danger flex items-center justify-center transition-all duration-200 cursor-pointer"
+            className="w-11 h-11 rounded-[14px] key text-dim hover:text-danger flex items-center justify-center transition-all duration-200 cursor-pointer"
           >
             <svg className="w-4 h-4 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -275,13 +276,13 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
       </nav>
 
       {/* ---------------- COLUMN 2: CHANNEL DRAWER & HARDWARE DOCK (240px) ---------------- */}
-      <aside className="w-60 bg-surface-1 hidden md:flex flex-col justify-between border-r border-white/[0.04] shrink-0 z-10">
+      <aside className="w-60 panel rounded-[22px] my-3 hidden md:flex flex-col justify-between shrink-0 z-10 overflow-hidden">
         {/* Workspace Header */}
         <div>
-          <header className="h-12 px-4 border-b border-white/[0.05] flex items-center justify-between font-semibold text-sm text-white shadow-sm hover:bg-white/[0.02] cursor-pointer transition">
+          <header className="h-14 px-4 border-b border-white/[0.05] flex items-center justify-between font-semibold text-sm text-white hover:bg-white/[0.02] cursor-pointer transition">
             <div className="flex items-center gap-2 truncate">
-              <span className="w-2 h-2 rounded-full bg-ok shadow-[0_0_8px_rgba(35,165,90,0.6)]" />
-              <span className="truncate font-semibold tracking-tight text-[13px]">Realtime Cluster</span>
+              <span className="w-2 h-2 rounded-full bg-ok shadow-[0_0_8px_rgba(110,231,160,0.7)]" />
+              <span className="truncate font-display font-semibold tracking-[-0.01em] text-[15px]">Realtime Cluster</span>
             </div>
             <svg className="w-4 h-4 text-dim" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -300,7 +301,7 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
                   href="/chat"
                   className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] font-medium transition-all ${
                     isChatActive
-                      ? "bg-white/[0.08] text-white"
+                      ? "well text-white"
                       : "text-dim hover:bg-white/[0.04] hover:text-body"
                   }`}
                 >
@@ -316,14 +317,14 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
             <div>
               <div className="flex items-center justify-between px-2 py-1 text-[11px] font-semibold text-muted tracking-wider uppercase">
                 <span>Voice Channels</span>
-                <span className="text-[10px] text-ok font-mono">SFU</span>
+                <span className="text-[10px] text-voice font-mono">SFU</span>
               </div>
               <div className="mt-1 space-y-0.5">
                 <Link
                   href="/voice"
                   className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-[13px] font-medium transition-all ${
                     isVoiceActive
-                      ? "bg-ok/15 text-ok font-semibold"
+                      ? "well text-voice font-semibold"
                       : "text-dim hover:bg-white/[0.04] hover:text-body"
                   }`}
                 >
@@ -344,14 +345,14 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
             <div>
               <div className="flex items-center justify-between px-2 py-1 text-[11px] font-semibold text-muted tracking-wider uppercase">
                 <span>Offline Mesh</span>
-                <span className="text-[10px] text-warn font-mono">BLE</span>
+                <span className="text-[10px] text-mesh font-mono">BLE</span>
               </div>
               <div className="mt-1 space-y-0.5">
                 <Link
                   href="/mesh"
                   className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] font-medium transition-all ${
                     isMeshActive
-                      ? "bg-warn/15 text-warn font-semibold"
+                      ? "well text-mesh font-semibold"
                       : "text-dim hover:bg-white/[0.04] hover:text-body"
                   }`}
                 >
@@ -364,15 +365,15 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
         </div>
 
         {/* ---------------- PERSISTENT BOTTOM USER & VOICE STATUS DOCK ---------------- */}
-        <div className="border-t border-white/[0.05] bg-surface-0/90 p-2 flex flex-col gap-1.5">
+        <div className="border-t border-white/[0.05] p-2.5 flex flex-col gap-2">
           {/* RTC Connection Banner */}
           {isVoiceActive && (
-            <div className="flex items-center justify-between px-2 py-1 bg-ok/10 border border-ok/30 rounded-md text-[11px]">
-              <div className="flex items-center gap-1.5 text-ok font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-ok animate-pulse" />
+            <div className="flex items-center justify-between px-2.5 py-1.5 bg-voice text-on-accent brut rounded-[12px] text-[11px]">
+              <div className="flex items-center gap-1.5 font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-on-accent animate-pulse" />
                 <span>Voice Connected</span>
               </div>
-              <span className="text-[10px] text-ok font-mono">18ms</span>
+              <span className="text-[10px] font-mono">18ms</span>
             </div>
           )}
 
@@ -381,7 +382,7 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
             <div className="flex items-center gap-2 truncate">
               <div className="relative">
                 <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm"
+                  className="w-8 h-8 rounded-[10px] flex items-center justify-center text-xs font-bold text-white shadow-sm"
                   style={{ backgroundColor: getAvatarColor(user.username || "") }}
                 >
                   {user.username?.charAt(0).toUpperCase()}
@@ -433,51 +434,42 @@ export default function AppShell({ children, activeChannel = "general-chat", onl
       </aside>
 
       {/* ---------------- COLUMN 3: MAIN STAGE / CONTENT AREA ---------------- */}
-      <main className="flex-1 flex flex-col min-w-0 bg-surface-2 relative overflow-hidden">
+      <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-surface-2 relative overflow-hidden md:rounded-[22px] md:m-3 md:shadow-xl md:border md:border-white/[0.06]">
         {children}
       </main>
 
-      {/* ---------------- PHONE: BOTTOM TABS (Android: filled block, iOS: tinted icon) ---------------- */}
-      <nav
-        aria-label="Main"
-        className="md:hidden shrink-0 grid grid-cols-4 bg-surface-0 border-t-2 border-black [.theme-1bit_&]:border-white pb-safe"
-      >
-        {TABS.map((tab) => {
-          const active = pathname === tab.href;
-          const isMesh = tab.href === "/mesh";
-          const icon = isMesh ? (
-            <MeshIcon className="w-5 h-5" />
-          ) : (
-            <svg className="w-5 h-5 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d={tab.icon} />
-            </svg>
-          );
-          const tint = active ? (isMesh ? "text-mesh" : "text-accent") : isMesh ? "text-mesh/80" : "text-dim";
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              aria-current={active ? "page" : undefined}
-              className={`flex flex-col items-center justify-center gap-1 min-h-[56px] pt-2 pb-1.5 ${
-                isIos ? `text-[10px] ${tint}` : `text-[12px] ${active ? "text-ink font-semibold" : tint}`
-              }`}
-            >
-              {isIos ? (
-                icon
-              ) : (
-                <span
-                  className={`flex items-center justify-center w-14 h-7 rounded-md ${
-                    active ? `${isMesh ? "bg-mesh" : "bg-accent"} text-on-accent brut` : ""
-                  }`}
-                >
-                  {icon}
-                </span>
-              )}
-              <span className={isMeshActive ? "font-mono uppercase" : ""}>{tab.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
+      {/* ---------------- PHONE: BOTTOM TABS (floating pill; the active tab grows into a labelled button) ---------------- */}
+      <div className="md:hidden shrink-0 flex justify-center px-3 pt-2 pb-safe">
+        <nav aria-label="Main" className="panel rounded-[28px] p-1.5 mb-2 flex gap-1">
+          {TABS.map((tab) => {
+            const active = pathname === tab.href;
+            const isMesh = tab.href === "/mesh";
+            const icon = isMesh ? (
+              <MeshIcon className="w-5 h-5" />
+            ) : (
+              <svg className="w-5 h-5 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d={tab.icon} />
+              </svg>
+            );
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                aria-current={active ? "page" : undefined}
+                aria-label={tab.label}
+                className={`h-12 flex items-center justify-center gap-2 rounded-[22px] text-[14px] font-semibold ${
+                  active
+                    ? `px-4 ${isMesh ? "bg-mesh" : "bg-accent"} text-on-accent brut`
+                    : `w-[52px] ${isMesh ? "text-mesh" : "text-dim"}`
+                }`}
+              >
+                {icon}
+                {active && <span className={isMeshActive ? "font-mono uppercase text-[12px]" : ""}>{tab.label}</span>}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
     </div>
   );
 }

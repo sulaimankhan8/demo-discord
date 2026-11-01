@@ -80,11 +80,11 @@ export default function Page() {
       </div>
 
       {/* Studio Hairline Card */}
-      <div className="w-full max-w-[400px] bg-surface-1 border border-white/[0.08] rounded-2xl p-8 shadow-2xl shadow-black/80 relative z-10">
+      <div className="w-full max-w-[400px] panel rounded-[28px] p-8 relative z-10">
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center mb-6">
           <div
-            className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-xl font-bold mb-4 shadow-lg border border-white/10 transition-colors duration-200"
+            className="w-16 h-16 rounded-[20px] flex items-center justify-center text-white text-2xl font-bold font-display mb-4 shadow-lg border border-white/10 transition-colors duration-200"
             style={{ backgroundColor: getAvatarColor(username) }}
           >
             {username ? username.charAt(0).toUpperCase() : (
@@ -94,7 +94,7 @@ export default function Page() {
             )}
           </div>
 
-          <h1 className="font-display text-4xl leading-none text-white">
+          <h1 className="font-display font-semibold text-[26px] md:text-4xl leading-[1.05] tracking-[-0.02em] text-white">
             Realtime Workspace
           </h1>
           <p className="text-xs text-dim mt-1 font-mono">
@@ -123,7 +123,7 @@ export default function Page() {
               onKeyDown={(e) => e.key === "Enter" && void login()}
               placeholder="e.g. Alex, Neo, Trinity"
               maxLength={24}
-              className="w-full px-3.5 py-2.5 bg-surface-0 border border-white/[0.08] focus:border-accent focus:ring-1 focus:ring-accent rounded-lg text-sm text-white placeholder-muted outline-none transition font-medium"
+              className="w-full px-3.5 py-2.5 well focus:border-accent focus:ring-2 focus:ring-accent/20 rounded-[14px] text-sm text-white placeholder-muted outline-none transition font-medium"
               autoFocus
             />
           </div>
@@ -143,7 +143,7 @@ export default function Page() {
           <button
             onClick={() => void login(true)}
             disabled={!username.trim()}
-            className="w-full py-2.5 bg-surface-0 hover:bg-surface-3 border border-mesh/40 text-mesh font-semibold rounded-lg text-sm transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-2.5 bg-mesh/10 hover:bg-mesh/15 border border-mesh/40 text-mesh font-semibold rounded-[14px] text-sm transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
           >
             <span>Enter offline · Bluetooth mesh</span>
           </button>

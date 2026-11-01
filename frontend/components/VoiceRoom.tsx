@@ -1164,14 +1164,14 @@ videoEnabled: !!videoProducerRef.current,
         {/* TOP STAGE HEADER */}
         <header className="h-12 px-4 bg-surface-2 border-b border-white/[0.05] flex justify-between items-center shrink-0 z-10">
           <div className="flex items-center gap-2.5 truncate">
-            <svg className="w-5 h-5 text-ok shrink-0 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-voice shrink-0 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
             </svg>
-            <h1 className="font-display text-xl leading-none text-white flex items-center gap-2">
+            <h1 className="font-display text-base md:text-xl leading-none text-white flex items-center gap-2 min-w-0">
               global-voice
               {joined && (
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono bg-ok/15 text-ok border border-ok/30">
-                  <span className="w-1.5 h-1.5 rounded-full bg-ok animate-pulse" />
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono bg-voice/15 text-voice border border-voice/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-voice animate-pulse" />
                   RTC 18ms
                 </span>
               )}
@@ -1223,7 +1223,7 @@ videoEnabled: !!videoProducerRef.current,
         {!joined ? (
           /* PRE-JOIN STAGE GATE */
           <div className="flex flex-col items-center justify-center flex-1 gap-5 p-6 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-ok/15 border border-ok/30 flex items-center justify-center text-ok shadow-xl">
+            <div className="w-16 h-16 rounded-2xl bg-voice/15 border border-voice/30 flex items-center justify-center text-voice shadow-xl">
               <svg className="w-8 h-8 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
               </svg>
@@ -1238,7 +1238,7 @@ videoEnabled: !!videoProducerRef.current,
             </div>
             <button
               onClick={joinVoice}
-              className="px-6 py-2.5 bg-ok hover:bg-ok-hover brut text-on-accent font-semibold text-sm rounded-lg transition-all shadow-lg shadow-ok/25 hover:scale-[1.01] active:scale-[0.99] flex items-center gap-2 cursor-pointer"
+              className="px-6 py-2.5 bg-voice hover:bg-voice-hover brut text-on-accent font-semibold text-sm rounded-lg transition-all shadow-lg shadow-voice/25 hover:scale-[1.01] active:scale-[0.99] flex items-center gap-2 cursor-pointer"
             >
               <span>Connect to Stage</span>
             </button>
@@ -1269,7 +1269,7 @@ videoEnabled: !!videoProducerRef.current,
             <div className="h-16 bg-surface-1 border-t border-white/[0.05] px-6 flex justify-between items-center shrink-0 z-10">
               {/* Left Telemetry */}
               <div className="hidden sm:flex items-center gap-2 text-xs text-dim font-mono">
-                <span className="w-2 h-2 rounded-full bg-ok" />
+                <span className="w-2 h-2 rounded-full bg-voice" />
                 <span>Opus 48kHz</span>
                 <span className="text-muted">•</span>
                 <span>{visiblePeers.length} active tiles</span>
@@ -1295,7 +1295,7 @@ videoEnabled: !!videoProducerRef.current,
                     </>
                   ) : (
                     <>
-                      <svg className="w-4 h-4 text-ok" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-4 h-4 text-voice" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                       </svg>
                       <span>Mute</span>
@@ -1418,7 +1418,7 @@ const PeerTile = React.memo(
         onClick={onClick}
         className={`relative bg-surface-0 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 select-none group flex items-center justify-center border ${
           isActiveSpeaker
-            ? "border-ok shadow-[0_0_20px_rgba(35,165,90,0.35)]"
+            ? "border-voice shadow-[0_0_20px_rgba(184,164,255,0.35)]"
             : "border-white/[0.06] hover:border-white/[0.12]"
         }`}
       >
@@ -1437,7 +1437,7 @@ const PeerTile = React.memo(
           <div className="w-full h-full flex flex-col items-center justify-center bg-surface-0 relative">
             <div
               className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-lg transition-transform ${
-                isActiveSpeaker ? "scale-105 ring-2 ring-ok" : ""
+                isActiveSpeaker ? "scale-105 ring-2 ring-voice" : ""
               }`}
               style={{ backgroundColor: getAvatarColor(peer.username) }}
             >
@@ -1469,9 +1469,9 @@ const PeerTile = React.memo(
         <div className="absolute bottom-2.5 left-2.5 bg-canvas/80 backdrop-blur-md px-2 py-1 rounded text-xs font-semibold text-white flex items-center gap-1.5 border border-white/10 shadow z-10">
           {isActiveSpeaker && (
             <span className="flex items-end gap-[2px] h-3">
-              <span className="w-[2px] h-full bg-ok rounded-full animate-pulse" />
-              <span className="w-[2px] h-2 bg-ok rounded-full animate-pulse delay-75" />
-              <span className="w-[2px] h-3 bg-ok rounded-full animate-pulse delay-150" />
+              <span className="w-[2px] h-full bg-voice rounded-full animate-pulse" />
+              <span className="w-[2px] h-2 bg-voice rounded-full animate-pulse delay-75" />
+              <span className="w-[2px] h-3 bg-voice rounded-full animate-pulse delay-150" />
             </span>
           )}
           <span className="max-w-[110px] truncate text-[12px]">{peer.username}</span>

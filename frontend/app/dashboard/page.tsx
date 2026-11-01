@@ -31,7 +31,7 @@ export default function Dashboard() {
         {/* TOP BANNER */}
         <header className="max-w-4xl w-full mx-auto flex items-center justify-between pb-6 border-b border-white/[0.05]">
           <div>
-            <h1 className="font-display text-4xl leading-none text-white">
+            <h1 className="font-display font-semibold text-[26px] md:text-4xl leading-[1.05] tracking-[-0.02em] text-white">
               Welcome back, {user.username}
             </h1>
             <p className="text-xs text-dim mt-0.5 font-mono">
@@ -62,7 +62,7 @@ export default function Dashboard() {
             {/* TEXT STREAM CARD */}
             <Link
               href="/chat"
-              className="group bg-surface-0 hover:bg-surface-1 border border-white/[0.06] hover:border-accent/50 rounded-xl p-6 transition-all duration-200 shadow-lg flex flex-col justify-between cursor-pointer"
+              className="group panel hover:border-accent/50 rounded-[26px] p-6 transition-all duration-200 shadow-lg flex flex-col justify-between cursor-pointer"
             >
               <div>
                 <div className="w-10 h-10 rounded-lg bg-accent/15 border border-accent/30 flex items-center justify-center mb-4 text-accent">
@@ -90,17 +90,17 @@ export default function Dashboard() {
             {/* STAGE VOICE CARD */}
             <Link
               href="/voice"
-              className="group bg-surface-0 hover:bg-surface-1 border border-white/[0.06] hover:border-ok/50 rounded-xl p-6 transition-all duration-200 shadow-lg flex flex-col justify-between cursor-pointer"
+              className="group panel hover:border-voice/50 rounded-[26px] p-6 transition-all duration-200 shadow-lg flex flex-col justify-between cursor-pointer"
             >
               <div>
-                <div className="w-10 h-10 rounded-lg bg-ok/15 border border-ok/30 flex items-center justify-center mb-4 text-ok">
+                <div className="w-10 h-10 rounded-lg bg-voice/15 border border-voice/30 flex items-center justify-center mb-4 text-voice">
                   <svg className="w-5 h-5 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                   </svg>
                 </div>
-                <h3 className="text-base font-bold text-white group-hover:text-ok transition-colors flex items-center gap-2">
+                <h3 className="text-base font-bold text-white group-hover:text-voice transition-colors flex items-center gap-2">
                   <span>global-voice</span>
-                  <span className="text-[10px] bg-ok/20 text-ok font-mono px-2 py-0.5 rounded">
+                  <span className="text-[10px] bg-voice/20 text-voice font-mono px-2 py-0.5 rounded">
                     SFU WebRTC
                   </span>
                 </h3>
@@ -109,7 +109,7 @@ export default function Dashboard() {
                 </p>
               </div>
 
-              <div className="mt-6 flex items-center justify-between pt-3 border-t border-white/[0.05] text-xs font-semibold text-ok">
+              <div className="mt-6 flex items-center justify-between pt-3 border-t border-white/[0.05] text-xs font-semibold text-voice">
                 <span>Connect to Stage</span>
                 <span className="group-hover:translate-x-1 transition-transform font-mono">→</span>
               </div>

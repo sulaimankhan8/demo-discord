@@ -442,7 +442,7 @@ export default function ChatBox() {
             <div className="flex items-center gap-2">
               <Link
                 href="/voice"
-                className="flex items-center gap-1.5 px-3 py-1 bg-ok/15 hover:bg-ok/25 text-ok border border-ok/30 rounded-md text-xs font-semibold transition"
+                className="flex items-center gap-1.5 px-3 py-1 bg-voice/15 hover:bg-voice/25 text-voice border border-voice/30 rounded-full text-xs font-semibold transition"
               >
                 <svg className="w-3.5 h-3.5 fill-none stroke-current" strokeWidth="2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
@@ -615,7 +615,7 @@ export default function ChatBox() {
 
           {/* CHAT INPUT AREA */}
           <div className="px-4 pb-4 pt-1 bg-surface-2">
-            <div className="relative flex items-center bg-surface-3 border border-white/[0.06] focus-within:border-white/[0.18] rounded-lg px-4 py-2.5 transition">
+            <div className="relative flex items-center well focus-within:border-accent/60 rounded-[18px] px-4 py-2.5 transition">
               <input
                 value={input}
                 onFocus={() => setInputFocused(true)}

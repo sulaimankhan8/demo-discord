@@ -27,7 +27,7 @@ export default function MeshComposer({ disabled, onSend, placeholder = "Message 
 
   return (
     <div className="px-4 pb-4 pt-1 bg-surface-2">
-      <div className="relative flex items-center bg-surface-3 border border-white/[0.06] focus-within:border-white/[0.18] rounded-lg px-4 py-2.5 transition">
+      <div className="relative flex items-center well focus-within:border-white/[0.18] rounded-[18px] px-4 py-2.5 transition">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}

@@ -69,7 +69,7 @@ export default function DownloadApp({ variant = "card" }: { variant?: "card" | "
   }
 
   return (
-    <div className="flex items-center gap-3 p-3 bg-surface-0 border border-white/[0.08] rounded-lg">
+    <div className="flex items-center gap-3 p-3 pl-4 panel rounded-[18px]">
       <div className="flex-1 min-w-0">
         <div className="text-sm font-semibold text-ink">Android app</div>
         <div className="text-[11px] text-dim font-mono">
